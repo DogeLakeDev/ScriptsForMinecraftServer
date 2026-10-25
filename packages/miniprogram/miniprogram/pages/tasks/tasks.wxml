@@ -1,0 +1,79 @@
+<view class="page with-tabbar">
+  <conn-banner />
+  <view class="segmented">
+    <view class="segmented-item {{filter === 'all' ? 'active' : ''}}" data-value="all" bindtap="setFilter">
+      全部<text class="segmented-count">{{counts.all}}</text>
+    </view>
+    <view class="segmented-item {{filter === 'active' ? 'active' : ''}}" data-value="active" bindtap="setFilter">
+      进行中<text class="segmented-count">{{counts.active}}</text>
+    </view>
+    <view class="segmented-item {{filter === 'failed' ? 'active' : ''}}" data-value="failed" bindtap="setFilter">
+      失败或中断<text class="segmented-count {{counts.failed ? 'danger' : ''}}">{{counts.failed}}</text>
+    </view>
+  </view>
+
+  <view class="surface">
+    <view class="surface-list">
+      <view wx:for="{{rows}}" wx:key="id" class="task">
+        <view class="list-item" hover-class="hover" data-id="{{item.id}}" bindtap="toggle">
+          <view class="tile tile-{{item.tone}}">
+            <text class="i i-{{item.icon}} {{item.spin ? 'spin' : ''}}"></text>
+          </view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">{{item.label}}</text></view>
+            <view class="list-sub">{{item.phase}} · <text class="mono">{{item.elapsed}}</text></view>
+          </view>
+          <!-- 状态由左侧图标表达，右侧只留时间 -->
+          <view class="task-end">
+            <text class="small muted">{{item.time}}</text>
+          </view>
+        </view>
+        <!-- 展开详情 -->
+        <view wx:if="{{item.open}}" class="task-detail">
+          <view class="steps">
+            <view wx:for="{{item.detail.phases}}" wx:for-item="phase" wx:key="key" class="step">
+              <view class="tile tile-sm tile-{{phase.tone}}">
+                <text class="i i-sm i-{{phase.icon}} {{phase.spin ? 'spin' : ''}}"></text>
+              </view>
+              <view class="step-main">
+                <view class="row">
+                  <text class="b">{{phase.name}}</text>
+                  <text class="spacer"></text>
+                  <text class="small muted mono">{{phase.spent}}</text>
+                </view>
+                <view wx:if="{{phase.message}}" class="small muted step-message" user-select>{{phase.message}}</view>
+              </view>
+            </view>
+            <view wx:if="{{!item.detail.phases.length}}" class="small muted">无阶段记录</view>
+          </view>
+          <view wx:if="{{item.detail.errorMessage}}" class="callout tone-danger">
+            <text class="i i-x-circle"></text>
+            <view class="callout-body">
+              <view class="callout-title">错误：{{item.detail.errorCode}}</view>
+              <view class="callout-text" user-select>{{item.detail.errorMessage}}</view>
+            </view>
+          </view>
+          <view class="kv">
+            <text class="kv-key">任务编号</text>
+            <text class="kv-value mono link" data-id="{{item.id}}" bindtap="copyId">{{item.id}}</text>
+            <text class="kv-key">任务种类</text>
+            <text class="kv-value mono">{{item.detail.kind}}</text>
+            <text class="kv-key">创建时间</text>
+            <text class="kv-value">{{item.detail.createdAt}}</text>
+            <text class="kv-key">更新时间</text>
+            <text class="kv-value">{{item.detail.updatedAt}}</text>
+          </view>
+          <block wx:if="{{item.detail.result}}">
+            <view class="field-label">结果</view>
+            <text class="code" user-select>{{item.detail.result}}</text>
+          </block>
+          <block wx:if="{{item.detail.errorDetails}}">
+            <view class="field-label">错误详情</view>
+            <text class="code" user-select>{{item.detail.errorDetails}}</text>
+          </block>
+        </view>
+      </view>
+      <empty-state wx:if="{{!rows.length}}" icon="history" title="{{hasAny ? '没有符合筛选条件的任务' : '暂无任务'}}" />
+    </view>
+  </view>
+</view>

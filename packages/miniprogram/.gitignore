@@ -1,0 +1,8 @@
+# scripts/build-assets.mjs 生成的资源
+miniprogram/vendor/
+miniprogram/styles/icons.wxss
+miniprogram/styles/palette.wxss
+miniprogram/assets/tabbar/
+
+# 微信开发者工具的个人设置（含本机 appid、不校验域名等调试开关）
+project.private.config.json

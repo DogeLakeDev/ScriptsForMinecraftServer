@@ -1,0 +1,31 @@
+{
+  "name": "@sfmc-bds/mp-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SFMC 微信小程序管理网关：把鉴权后的 WebSocket 连接桥接到 sfmc manage --stdio",
+  "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "bin": {
+    "sfmc-mp-gateway": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "sfmc-esbuild-transpile",
+    "start": "node ./dist/main.js",
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sfmc-bds/management": "workspace:*",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@sfmc-bds/tools": "workspace:*"
+  }
+}

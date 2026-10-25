@@ -660,6 +660,11 @@
   margin-top: 28px;
 }
 
+/* 卡片张数为奇数时，最后一张独占一行，避免两列里留下半行空白 */
+.choice-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .choice-card {
   display: flex;
   align-items: center;

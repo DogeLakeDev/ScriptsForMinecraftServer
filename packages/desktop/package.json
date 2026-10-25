@@ -1,7 +1,6 @@
 {
   "name": "@sfmc-bds/desktop",
-  "version": "0.3.8",
-  "private": true,
+  "version": "0.3.8+build.1",
   "description": "SFMC 桌面管理客户端",
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -20,6 +19,7 @@
     "@base-ui/react": "1.8.0",
     "@monaco-editor/react": "4.7.0",
     "@sfmc-bds/management": "workspace:*",
+    "@sfmc-bds/ui": "workspace:*",
     "echarts": "6.1.0",
     "electron-updater": "6.8.9",
     "jsonc-parser": "3.3.1",
@@ -27,7 +27,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "ssh2": "1.17.0",
-    "@sfmc-bds/ui": "workspace:*"
+    "ws": "8.21.1"
   },
   "devDependencies": {
     "@sfmc-bds/sfmc": "workspace:*",
@@ -35,8 +35,8 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@types/ssh2": "1.15.6",
-    "electron": "44.5.1",
+    "electron": "44.9.3",
     "electron-builder": "26.15.3",
-    "vite": "8.3.1"
+    "vite": "8.3.5"
   }
 }

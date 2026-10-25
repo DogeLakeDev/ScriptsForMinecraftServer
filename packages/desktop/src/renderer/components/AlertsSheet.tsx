@@ -271,13 +271,20 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
     openLog({ time: alert.lastTime, source: alert.source, level: alert.level, text: alert.text });
   };
 
+  /** 档案不完整时显示在筛选下方：日志被截断，或当前还不能按时间回读。 */
+  const archiveNote = truncated
+    ? "更早的报错没有全部读进来。"
+    : legacy
+      ? "列表只包含这次连接里出现的报错。"
+      : "";
+
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      className="sheet-fill"
       width={640}
       title="告警"
-      description={alerts.length ? `已保存 ${alerts.length} 条，错误 ${counts.errors}，警告 ${counts.warnings}` : "警告和错误"}
       actions={
         <>
           <Button size="sm" variant="ghost" icon="copy" disabled={!filtered.length} onClick={copyVisible}>复制</Button>
@@ -287,64 +294,77 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
     >
       <div className="alert-archive">
         <div className="alert-archive-tools">
-          <SearchInput value={query} onChange={setQuery} placeholder="搜索报错" aria-label="搜索告警" />
-          <div className="chip-row">
-            <Chip active={level === "all" && !unreadOnly} onClick={() => { setLevel("all"); setUnreadOnly(false); }}>全部</Chip>
-            <Chip active={level === "error"} tone="danger" count={counts.errors} onClick={() => setLevel("error")}>错误</Chip>
-            <Chip active={level === "warn"} tone="warning" count={counts.warnings} onClick={() => setLevel("warn")}>警告</Chip>
-            <Chip active={unreadOnly} count={unread} onClick={() => setUnreadOnly((value) => !value)}>未读</Chip>
+          <SearchInput value={query} onChange={setQuery} placeholder="搜索告警" aria-label="搜索告警" />
+          <div className="alert-filter-line">
+            <span className="alert-filter-label">级别</span>
+            <div className="chip-row" role="group" aria-label="级别">
+              <Chip active={level === "all" && !unreadOnly} onClick={() => { setLevel("all"); setUnreadOnly(false); }}>全部</Chip>
+              <Chip active={level === "error"} tone="danger" count={counts.errors} onClick={() => setLevel("error")}>错误</Chip>
+              <Chip active={level === "warn"} tone="warning" count={counts.warnings} onClick={() => setLevel("warn")}>警告</Chip>
+              <Chip active={unreadOnly} count={unread} onClick={() => setUnreadOnly((value) => !value)}>未读</Chip>
+            </div>
           </div>
           {counts.sources.length > 1 && (
-            <div className="chip-row">
-              <Chip active={!source} onClick={() => setSource("")}>all</Chip>
-              {counts.sources.map(([name, count]) => (
-                <Chip key={name} active={source === name} count={count} onClick={() => setSource(name)}>
-                  <span className="mono">{name}</span>
-                </Chip>
-              ))}
+            <div className="alert-filter-line">
+              <span className="alert-filter-label">来源</span>
+              <div className="chip-row" role="group" aria-label="来源">
+                <Chip active={!source} onClick={() => setSource("")}>全部</Chip>
+                {counts.sources.map(([name, count]) => (
+                  <Chip key={name} active={source === name} count={count} onClick={() => setSource(name)}>
+                    <span className="mono">{name}</span>
+                  </Chip>
+                ))}
+              </div>
             </div>
           )}
-          {hiddenCount > 0 && (
+          {(hiddenCount > 0 || archiveNote) && (
             <p className="alert-archive-note">
-              已忽略 {hiddenCount} 条
-              <button type="button" className="link-btn" onClick={restoreHidden}>恢复已忽略</button>
+              {archiveNote && <span>{archiveNote}</span>}
+              {hiddenCount > 0 && (
+                <span>
+                  已忽略 {hiddenCount} 条
+                  <button type="button" className="link-btn" onClick={restoreHidden}>恢复</button>
+                </span>
+              )}
             </p>
           )}
         </div>
-        {filtered.length ? (
-          <ul className="alert-archive-list">
-            {filtered.map((alert) => {
-              const unreadRow = isUnread(alert, seenAt);
-              return (
-                <li key={alertKey(alert)} className={unreadRow ? "alert-archive-row is-unread" : "alert-archive-row"}>
-                  <button type="button" className="feed-item alert-archive-main" onClick={() => jump(alert)}>
-                    <IconTile icon={alert.level === "error" ? "bug" : "warning"} tone={alert.level === "error" ? "danger" : "warning"} />
-                    <span className="feed-text">
-                      <span className="feed-title truncate" title={alert.text}>{alert.text.split("\n")[0]}</span>
-                      <span className="feed-meta alert-archive-meta">
-                        <span className="mono">{alert.source}</span>
-                        <span>{alert.level === "error" ? "错误" : "警告"}</span>
-                        <span title={`${fullTime(alert.lastTime)}`}>×{alert.count}</span>
+        <div className="alert-archive-scroll">
+          {filtered.length ? (
+            <ul className="alert-archive-list">
+              {filtered.map((alert) => {
+                const unreadRow = isUnread(alert, seenAt);
+                return (
+                  <li key={alertKey(alert)} className={unreadRow ? "alert-archive-row is-unread" : "alert-archive-row"}>
+                    <button type="button" className="feed-item alert-archive-main" onClick={() => jump(alert)}>
+                      <IconTile icon={alert.level === "error" ? "bug" : "warning"} tone={alert.level === "error" ? "danger" : "warning"} />
+                      <span className="feed-text">
+                        <span className="feed-title truncate" title={alert.text}>{alert.text.split("\n")[0]}</span>
+                        <span className="feed-meta alert-archive-meta">
+                          <span className="mono">{alert.source}</span>
+                          <span title={fullTime(alert.lastTime)}>{relativeTime(alert.lastTime, now)}</span>
+                          {alert.count > 1 && <span>×{alert.count}</span>}
+                        </span>
                       </span>
+                    </button>
+                    <span className="alert-archive-actions">
+                      <IconButton icon="terminal" label="在控制台查看" size="sm" onClick={() => jump(alert)} />
+                      <IconButton icon="copy" label="复制" size="sm" onClick={() => copyOne(alert)} />
+                      <IconButton icon="x" label="忽略" size="sm" onClick={() => hideAlert(alert)} />
                     </span>
-                  </button>
-                  <span className="alert-archive-actions">
-                    <IconButton icon="terminal" label="在控制台查看" size="sm" onClick={() => jump(alert)} />
-                    <IconButton icon="copy" label="复制" size="sm" onClick={() => copyOne(alert)} />
-                    <IconButton icon="x" label="忽略" size="sm" onClick={() => hideAlert(alert)} />
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <EmptyState
-            compact
-            icon="bell"
-            title={scanning ? "正在读取报错" : alerts.length ? "没有符合筛选的告警" : "暂无告警"}
-            description={scanning ? "正在从日志文件整理警告和错误。" : alerts.length ? "换一个筛选条件，或清除搜索。" : ""}
-          />
-        )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <EmptyState
+              compact
+              icon="bell"
+              title={scanning ? "正在读取报错" : alerts.length ? "没有符合筛选的告警" : "暂无告警"}
+              description={scanning ? "正在从日志文件整理警告和错误。" : alerts.length ? "换一个筛选条件，或清除搜索。" : ""}
+            />
+          )}
+        </div>
       </div>
     </Sheet>
   );

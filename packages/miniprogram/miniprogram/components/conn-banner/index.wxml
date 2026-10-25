@@ -1,0 +1,44 @@
+<!-- 连接状态提示：未添加实例 / 连接中 / 已断开 / 只读 / 待初始化；已正常连接时不显示 -->
+<view wx:if="{{kind === 'none'}}" class="surface conn-empty">
+  <view class="tile tile-lg"><text class="i i-lg i-server"></text></view>
+  <view class="conn-empty-title">还没有可管理的实例</view>
+  <view class="conn-empty-desc">在服务器上运行 sfmc-mp-gateway，把网关地址和访问令牌填到这里即可远程管理。</view>
+  <view class="btn btn-primary btn-lg" hover-class="hover" bindtap="addInstance">
+    <text class="i i-plus"></text>
+    <text>添加实例</text>
+  </view>
+</view>
+<view wx:elif="{{kind === 'connecting'}}" class="callout">
+  <text class="i i-loader spin"></text>
+  <view class="callout-body">
+    <view class="callout-title">正在连接 {{name}}</view>
+  </view>
+</view>
+<view wx:elif="{{kind === 'offline'}}" class="callout tone-warning">
+  <text class="i i-unplug"></text>
+  <view class="callout-body">
+    <view class="callout-title">{{name}} 未连接</view>
+    <view wx:if="{{message}}" class="callout-text" user-select>{{message}}</view>
+    <view class="row conn-actions">
+      <view class="btn btn-sm btn-primary" hover-class="hover" bindtap="reconnect">
+        <text class="i i-sm i-refresh"></text>
+        <text>重新连接</text>
+      </view>
+      <view class="btn btn-sm" hover-class="hover" bindtap="openInstances">切换实例</view>
+    </view>
+  </view>
+</view>
+<view wx:elif="{{kind === 'legacy'}}" class="callout tone-warning">
+  <text class="i i-lock"></text>
+  <view class="callout-body">
+    <view class="callout-title">旧版平台，当前只读</view>
+    <view class="callout-text">请在桌面端或命令行升级实例平台后重新连接。</view>
+  </view>
+</view>
+<view wx:elif="{{kind === 'uninitialized'}}" class="callout">
+  <text class="i i-info"></text>
+  <view class="callout-body">
+    <view class="callout-title">部署尚未初始化</view>
+    <view class="callout-text">请先在桌面端或服务器上完成初始化向导，小程序暂不提供新建部署。</view>
+  </view>
+</view>

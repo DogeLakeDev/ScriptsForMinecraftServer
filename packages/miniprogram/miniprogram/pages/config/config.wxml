@@ -1,0 +1,38 @@
+<view class="page">
+  <conn-banner />
+  <view wx:if="{{online && !manualRestart}}" class="callout">
+    <text class="i i-info"></text>
+    <view class="callout-body">
+      <view class="callout-title">请先更新平台</view>
+      <view class="callout-text">当前平台保存配置会自动停服，升级前只允许查看。</view>
+    </view>
+  </view>
+  <view class="row">
+    <view class="search spacer">
+      <text class="i i-search"></text>
+      <input value="{{filter}}" placeholder="筛选配置文件" placeholder-class="placeholder" bindinput="onFilter" />
+    </view>
+    <view class="btn {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
+      <text class="i i-restart"></text>
+      <text>重启服务</text>
+    </view>
+  </view>
+
+  <view wx:for="{{groups}}" wx:for-item="group" wx:key="name" class="surface">
+    <view class="surface-head"><text class="surface-title truncate">{{group.name}}</text></view>
+    <view class="surface-list">
+      <view wx:for="{{group.rows}}" wx:key="key" class="list-item" hover-class="hover" data-key="{{item.key}}" bindtap="open">
+        <view class="tile tile-neutral"><text class="i i-{{item.icon}}"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">{{item.title}}</text></view>
+          <view class="list-sub truncate mono">{{item.file}}</view>
+        </view>
+        <text class="i i-sm i-chevron-right muted"></text>
+      </view>
+    </view>
+  </view>
+  <view wx:if="{{online && !groups.length}}" class="surface">
+    <empty-state icon="sliders" title="{{total ? '没有匹配的配置' : '暂无可编辑配置'}}" />
+  </view>
+</view>
+<confirm-sheet id="confirm" />

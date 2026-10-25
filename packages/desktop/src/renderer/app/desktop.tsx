@@ -485,6 +485,10 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
           setFlow({ kind: "login", profile, reconnect });
           return;
         }
+        if (profile.kind === "gateway" && !profile.hasCredential && !secret?.token) {
+          setFlow({ kind: "login", profile, reconnect });
+          return;
+        }
         patch(profile.id, { connecting: true, connectError: "", connectionMessage: "", connectionProgress: undefined });
         await guarded(async () => {
           try {
@@ -499,11 +503,14 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
             await refresh(profile.id, handshake.capabilities);
             const history = await window.sfmc.request(profile.id, "logs.tail", { limit: 1000 });
             patch(profile.id, { logs: history.entries });
-            if (!handshake.initialized) setFlow({ kind: "deploy", profile });
+            if (!handshake.initialized && profile.kind !== "gateway") setFlow({ kind: "deploy", profile });
           } catch (error) {
             const message = errorText(error);
             patch(profile.id, { connectError: message });
             if (profile.kind === "ssh" && /authentication methods failed|All configured authentication|passphrase|私钥/i.test(message)) {
+              setFlow({ kind: "login", profile, reconnect });
+            }
+            if (profile.kind === "gateway" && /访问令牌无效|鉴权失败/.test(message)) {
               setFlow({ kind: "login", profile, reconnect });
             }
             throw error;
@@ -551,8 +558,8 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
 
   const saveProfile = useCallback(
     async (values: InstanceProfile & Credentials, editing: InstanceProfile | null) => {
-      const { password, passphrase, ...valuesWithoutSecrets } = values;
-      const rows = await window.sfmc.saveProfile({ ...valuesWithoutSecrets, id: editing?.id ?? "" }, { password, passphrase });
+      const { password, passphrase, token, ...valuesWithoutSecrets } = values;
+      const rows = await window.sfmc.saveProfile({ ...valuesWithoutSecrets, id: editing?.id ?? "" }, { password, passphrase, token });
       profilesRef.current = rows;
       setProfiles(rows);
       const row = rows.at(-1)!;

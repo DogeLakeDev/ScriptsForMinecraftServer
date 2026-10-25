@@ -1,0 +1,122 @@
+.instance-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  border-radius: 14px;
+}
+.instance-head.hover {
+  background: var(--c-fill);
+}
+
+/* 状态条：2×2 网格（桌面端为一行四格） */
+.strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--c-pastel-1);
+}
+.strip-item:nth-child(2),
+.strip-item:nth-child(3) {
+  background: var(--c-pastel-2);
+}
+.strip-item.hover {
+  opacity: 0.8;
+}
+.strip-label {
+  color: var(--c-on-pastel);
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.7;
+}
+.strip-value {
+  color: var(--c-on-pastel);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.strip-value.text-warning {
+  color: var(--c-warning-text);
+}
+.strip-total {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.attention-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 16px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--c-line);
+}
+
+.chart-note {
+  margin-bottom: 8px;
+}
+.memory-panel {
+  margin: 12px 0 4px;
+}
+.memory-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 2px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.memory-meter {
+  height: 5px;
+  margin: 6px 0 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--c-fill-2);
+}
+.memory-meter view {
+  height: 100%;
+  border-radius: inherit;
+  background: #3488ff;
+}
+.memory-note {
+  color: var(--c-text-3);
+  font-size: 11px;
+  line-height: 16px;
+}
+.memory-process {
+  margin-top: 8px;
+}
+.chart-span {
+  margin-bottom: 4px;
+}
+.chart-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 4px;
+  margin: 10px 0 4px;
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+.chart-label:first-child {
+  margin-top: 0;
+}
+
+.instance-detail {
+  padding: 4px 8px;
+}
+.detail-link {
+  margin-top: 10px;
+}

@@ -123,6 +123,8 @@ async function probeQqRuntime(): Promise<{ alive: boolean; pid: number }> {
 }
 
 const tunnelRuntimePath = path.join(ROOT, ".sfmc", "tunnel.runtime.json");
+/** LLBot 没有单独的心跳模块，启停时由这里写下 PID，供数据服务统计内存。 */
+const llbotRuntimePath = path.join(ROOT, ".sfmc", "llbot.runtime.json");
 
 async function probeTunnelRuntime(): Promise<number> {
   const pid = readJson<{ pid?: number }>(tunnelRuntimePath)?.pid;
@@ -138,6 +140,20 @@ function clearTunnelRuntime(pid: number): void {
   if (readJson<{ pid?: number }>(tunnelRuntimePath)?.pid !== pid) return;
   try {
     fs.unlinkSync(tunnelRuntimePath);
+  } catch {
+    /* 进程退出时允许文件已被移除 */
+  }
+}
+
+function writeLlbotRuntime(pid: number): void {
+  fs.mkdirSync(path.dirname(llbotRuntimePath), { recursive: true });
+  fs.writeFileSync(llbotRuntimePath, JSON.stringify({ pid, startedAt: Date.now() }) + "\n");
+}
+
+function clearLlbotRuntime(pid: number): void {
+  if (readJson<{ pid?: number }>(llbotRuntimePath)?.pid !== pid) return;
+  try {
+    fs.unlinkSync(llbotRuntimePath);
   } catch {
     /* 进程退出时允许文件已被移除 */
   }
@@ -301,6 +317,7 @@ class Service {
       writeBdsPidFile(this.pid, ROOT);
     }
     if (this.name === "tunnel" && this.pid > 0) writeTunnelRuntime(this.pid);
+    if (this.name === "llbot" && this.pid > 0) writeLlbotRuntime(this.pid);
     this.events.emit("output", `started (PID ${this.pid})`, "info");
     this.events.emit("state", { name: this.name, running: true, pid: this.pid });
 
@@ -538,6 +555,7 @@ class Service {
       stopModuleSidecars();
     }
     if (this.name === "tunnel" && exitingPid > 0) clearTunnelRuntime(exitingPid);
+    if (this.name === "llbot" && exitingPid > 0) clearLlbotRuntime(exitingPid);
     if (wasRunning) {
       this.events.emit("state", { name: this.name, running: false, pid: 0 });
     }

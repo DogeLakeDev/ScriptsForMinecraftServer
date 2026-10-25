@@ -64,11 +64,45 @@ export function scalarLine(samples: MetricsSample[], field: "tps" | "onlineCount
   return hasValue(points) ? [{ name, color, axis: 0, points }] : [];
 }
 
+/**
+ * 分项曲线的名称。
+ * 使用场景：内存图图例。与数据服务 tracked-processes.ts 的 label、小程序 trend.ts 的同名函数一致。
+ */
+export function sfmcPartLabel(key: string): string {
+  if (key === "daemon") return "守护进程";
+  if (key === "qq") return "QQ 桥";
+  if (key === "tunnel") return "隧道";
+  if (key === "llbot") return "LLBot";
+  if (key.startsWith("sidecar:")) return key.slice("sidecar:".length);
+  return key;
+}
+
+/** 分项固定用色，避开主机、BDS、数据服务已经占用的下标。附属进程从第 5 个槽位起。 */
+const PART_COLOR_INDEX = [0, 5, 4, 7, 3] as const;
+const PART_ORDER = ["daemon", "qq", "tunnel", "llbot"];
+
+function partColor(key: string, sidecarIndex: number): string {
+  const slot = PART_ORDER.indexOf(key);
+  const index = slot >= 0 ? slot : PART_COLOR_INDEX.length - 1 + sidecarIndex;
+  return CHART_COLORS[PART_COLOR_INDEX[index % PART_COLOR_INDEX.length] ?? 0] ?? CHART_COLORS[0];
+}
+
 export function memoryLines(samples: ResourceSample[], from: number, end: number): ChartLine[] {
+  const present = new Set<string>();
+  for (const sample of samples) for (const key of Object.keys(sample.partsMb ?? {})) present.add(key);
+  const partKeys = [
+    ...PART_ORDER.filter((key) => present.has(key)),
+    ...[...present].filter((key) => !PART_ORDER.includes(key)).sort(),
+  ];
+  let sidecarIndex = 0;
   const series: [string, string, 0 | 1, (sample: ResourceSample) => number | null][] = [
-    ["总占用", CHART_COLORS[2], 0, (sample) => sample.hostUsedMb],
+    ["主机", CHART_COLORS[2], 0, (sample) => sample.hostUsedMb],
     ["BDS", CHART_COLORS[6], 1, (sample) => sample.bdsMb],
     ["数据服务", CHART_COLORS[1], 1, (sample) => sample.dbMb],
+    ...partKeys.map((key): [string, string, 0 | 1, (sample: ResourceSample) => number | null] => {
+      const color = partColor(key, key.startsWith("sidecar:") ? sidecarIndex++ : 0);
+      return [sfmcPartLabel(key), color, 1, (sample) => sample.partsMb?.[key] ?? null];
+    }),
   ];
   return series.flatMap(([name, color, axis, pick]) => {
     const points = trendPoints(samples, pick, from, end, 45_000);

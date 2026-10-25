@@ -192,6 +192,11 @@ mark {
   animation: spin 900ms linear infinite;
 }
 
+/* 水平镜像（Tabler 组件没有 mirrored 属性）。用于右侧栏开关等需要左右翻转的图标。 */
+.icon-mirrored {
+  transform: scaleX(-1);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

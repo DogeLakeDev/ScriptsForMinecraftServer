@@ -1,0 +1,119 @@
+<view class="page">
+  <conn-banner />
+  <view class="row">
+    <text class="small muted spacer">{{checkedAt}}</text>
+    <view class="btn btn-sm {{online ? '' : 'disabled'}}" hover-class="hover" bindtap="checkNow">
+      <text class="i i-sm {{checking ? 'i-loader spin' : 'i-refresh'}}"></text>
+      <text>检查更新</text>
+    </view>
+  </view>
+
+  <!-- 三类更新 -->
+  <view class="surface update-card">
+    <view class="row">
+      <view class="tile tile-{{platform.tone}}"><text class="i i-layers"></text></view>
+      <view class="list-main"><view class="b">SFMC 平台</view></view>
+      <text class="badge tone-{{platform.tone}}"><text class="dot tone-{{platform.tone}}"></text>{{platform.status}}</text>
+    </view>
+    <view wx:if="{{platform.error}}" class="small text-danger">{{platform.error}}</view>
+    <view wx:if="{{platform.from}}" class="version mono">
+      <text>{{platform.from}}</text>
+      <block wx:if="{{platform.to}}"><text class="i i-sm i-arrow-right muted"></text><text class="b">{{platform.to}}</text></block>
+    </view>
+    <view wx:if="{{platform.warning}}" class="small text-warning">{{platform.warning}}</view>
+    <text wx:if="{{platform.notes}}" class="notes" user-select>{{platform.notes}}</text>
+    <view wx:if="{{platform.available}}" class="btn btn-sm btn-primary {{editable ? '' : 'disabled'}}" hover-class="hover" data-kind="platform" bindtap="run">
+      <text class="i i-sm i-download"></text><text>{{platform.action}}</text>
+    </view>
+  </view>
+
+  <view class="surface update-card">
+    <view class="row">
+      <view class="tile tile-{{modules.tone}}"><text class="i i-modules"></text></view>
+      <view class="list-main"><view class="b">模块</view></view>
+      <text class="badge tone-{{modules.tone}}"><text class="dot tone-{{modules.tone}}"></text>{{modules.status}}</text>
+    </view>
+    <view wx:if="{{modules.error}}" class="small text-danger">{{modules.error}}</view>
+    <view wx:for="{{modules.items}}" wx:key="id" class="row small update-item">
+      <text class="truncate spacer">{{item.id}}</text>
+      <text class="mono muted">{{item.text}}</text>
+    </view>
+    <view wx:if="{{modules.action}}" class="btn btn-sm {{modules.available ? 'btn-primary' : ''}} {{editable ? '' : 'disabled'}}" hover-class="hover" data-kind="modules" bindtap="run">
+      <text class="i i-sm {{modules.available ? 'i-download' : 'i-refresh'}}"></text><text>{{modules.action}}</text>
+    </view>
+  </view>
+
+  <view class="surface update-card">
+    <view class="row">
+      <view class="tile tile-{{bds.tone}}"><text class="i i-cube"></text></view>
+      <view class="list-main"><view class="b">Bedrock 服务端</view></view>
+      <text class="badge tone-{{bds.tone}}"><text class="dot tone-{{bds.tone}}"></text>{{bds.status}}</text>
+    </view>
+    <view wx:if="{{bds.error}}" class="small text-danger">{{bds.error}}</view>
+    <view wx:if="{{bds.from}}" class="version mono">
+      <text>{{bds.from}}</text>
+      <block wx:if="{{bds.to}}"><text class="i i-sm i-arrow-right muted"></text><text class="b">{{bds.to}}</text></block>
+    </view>
+    <view wx:if="{{bds.action}}" class="btn btn-sm {{bds.available ? 'btn-primary' : ''}} {{editable ? '' : 'disabled'}}" hover-class="hover" data-kind="bds" bindtap="run">
+      <text class="i i-sm {{bds.available ? 'i-download' : 'i-refresh'}}"></text><text>{{bds.action}}</text>
+    </view>
+  </view>
+
+  <!-- 备份 -->
+  <view class="surface">
+    <view class="surface-head">
+      <text class="surface-title">可恢复备份</text>
+      <text wx:if="{{backups.length}}" class="badge">{{backups.length}} 份</text>
+      <view class="btn btn-sm btn-icon" hover-class="hover" bindtap="refreshBackups">
+        <text class="i i-sm {{backupsLoading ? 'i-loader spin' : 'i-refresh'}}"></text>
+      </view>
+      <view class="btn btn-sm {{editable && manualBackup && !backupRunning ? '' : 'disabled'}}" hover-class="hover" bindtap="createBackup">
+        <text class="i i-sm {{backupRunning ? 'i-loader spin' : 'i-archive'}}"></text>
+        <text>手动备份</text>
+      </view>
+    </view>
+    <view wx:if="{{legacyBackup}}" class="surface-body">
+      <view class="callout tone-warning">
+        <text class="i i-warning"></text>
+        <view class="callout-body">
+          <view class="callout-title">当前平台仍使用自动备份</view>
+          <view class="callout-text">升级实例平台并重新连接后，维护任务将不再创建全量备份，可在此手动创建。</view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{backupsError}}" class="surface-body">
+      <view class="callout tone-danger">
+        <text class="i i-x-circle"></text>
+        <view class="callout-body">
+          <view class="callout-title">读取备份失败</view>
+          <view class="callout-text">{{backupsError}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="surface-list">
+      <view wx:for="{{backups}}" wx:key="id" class="list-item">
+        <view class="tile"><text class="i i-archive"></text></view>
+        <view class="list-main">
+          <view class="list-title"><text class="truncate">{{item.title}}</text></view>
+          <view class="list-sub mono" data-id="{{item.id}}" bindlongpress="copyId">{{item.short}} {{item.time}}</view>
+        </view>
+        <view class="list-end">
+          <view class="btn btn-sm btn-danger-soft {{editable ? '' : 'disabled'}}" hover-class="hover" data-id="{{item.id}}" bindtap="restore">
+            <text class="i i-sm i-archive-restore"></text><text>恢复</text>
+          </view>
+          <view wx:if="{{canDeleteBackup}}" class="btn btn-sm btn-icon btn-danger-soft {{editable ? '' : 'disabled'}}" hover-class="hover" data-id="{{item.id}}" bindtap="removeBackup">
+            <text class="i i-sm i-trash"></text>
+          </view>
+        </view>
+      </view>
+      <empty-state
+        wx:if="{{!backups.length}}"
+        icon="archive"
+        title="暂无可恢复备份"
+        desc="{{manualBackup ? '需要保留当前状态时，点击“手动备份”' : '升级实例平台后可手动创建备份'}}"
+        compact
+      />
+    </view>
+  </view>
+</view>
+<confirm-sheet id="confirm" />

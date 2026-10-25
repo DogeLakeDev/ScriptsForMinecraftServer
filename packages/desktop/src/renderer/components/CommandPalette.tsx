@@ -12,7 +12,7 @@ import { NAV } from "../app/nav.js";
 import { useAppearance } from "../app/theme.js";
 import { cx } from "../lib/cx.js";
 import { Icon, type IconName } from "./icons.js";
-import { profileSubtitle } from "./Sidebar.js";
+import { profileIcon, profileSubtitle } from "./Sidebar.js";
 import { APPEARANCE_OPTIONS } from "./TitleBar.js";
 import { Kbd, StatusDot } from "./ui.js";
 
@@ -133,8 +133,8 @@ export function CommandPalette({
         group: "切换实例",
         label: profile.name,
         hint: profileSubtitle(profile),
-        icon: profile.kind === "ssh" ? "server" : "monitor",
-        keywords: `switch 切换 ${profile.host ?? ""} ${profile.root}`,
+        icon: profileIcon(profile.kind),
+        keywords: `switch 切换 ${profile.host ?? ""} ${profile.root} ${profile.endpoint ?? ""}`,
         tone: connectionState(models[profile.id]).tone,
         run: () => desktop.setCurrent(profile.id),
       });

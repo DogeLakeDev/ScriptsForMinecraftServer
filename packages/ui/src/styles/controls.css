@@ -114,7 +114,7 @@
 
 .btn-danger {
   background: var(--c-danger);
-  color: #fff;
+  color: var(--c-on-danger);
 }
 
 .btn-danger:hover:not(:disabled) {
@@ -196,7 +196,7 @@
   padding: 0 4px;
   border-radius: 999px;
   background: var(--c-danger);
-  color: #fff;
+  color: var(--c-on-danger);
   font-size: 10px;
   line-height: 16px;
   font-weight: 600;

@@ -1,0 +1,136 @@
+/* 控制台占满可视区：顶部筛选 + 中间日志 + 底部命令栏；原生标签栏不占用页面高度 */
+.console {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 12px;
+  gap: 8px;
+}
+.console-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.flex1 {
+  flex: 1;
+  min-width: 0;
+}
+.chip-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+.chip-sep {
+  flex: none;
+  width: 0.5px;
+  margin: 6px 2px;
+  background: var(--c-line);
+}
+.console-meta {
+  flex-wrap: wrap;
+}
+
+.log-view {
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  background: var(--c-block);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+}
+/* 不换行：表按最长一行撑开，scroll-view 的横向滚动才有可滑距离 */
+.log-view:not(.wrap) {
+  white-space: nowrap;
+}
+.log-sheet {
+  width: 100%;
+  box-sizing: border-box;
+}
+.log-view:not(.wrap) .log-sheet {
+  display: inline-block;
+  width: auto;
+  min-width: 100%;
+  vertical-align: top;
+  white-space: normal;
+}
+.log-row {
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+.log-view.wrap .log-row {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.log-row:first-child {
+  padding-top: 8px;
+}
+.log-row.focus {
+  background: var(--c-warning-soft);
+}
+.log-time {
+  color: var(--c-text-3);
+  margin-right: 6px;
+}
+.log-src {
+  margin-right: 6px;
+}
+.log-text {
+  color: var(--c-text);
+}
+.lv-error .log-text {
+  color: var(--c-danger-text);
+}
+.lv-warn .log-text {
+  color: var(--c-warning-text);
+}
+.lv-success .log-text {
+  color: var(--c-success-text);
+}
+.lv-debug .log-text {
+  color: var(--c-text-3);
+}
+.log-hint {
+  padding: 12px;
+  color: var(--c-text-3);
+  font-family: -apple-system, sans-serif;
+  font-size: 12px;
+  text-align: center;
+  white-space: normal;
+}
+
+.follow-btn {
+  position: absolute;
+  right: 24px;
+  bottom: 72px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+}
+.follow-btn.hover {
+  opacity: 0.86;
+}
+
+.command-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--c-block);
+}
+.command-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  font-size: 13px;
+  color: var(--c-text);
+}

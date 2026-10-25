@@ -32,6 +32,7 @@ export function StartupDrawer({ open, onClose }: { open: boolean; onClose: () =>
     <Sheet
       open={open}
       onClose={onClose}
+      className="sheet-fill"
       width={720}
       title="配置开机启动"
       description={windows ? "注册为 Windows 系统服务" : "注册为 systemd 服务"}
@@ -47,7 +48,7 @@ export function StartupDrawer({ open, onClose }: { open: boolean; onClose: () =>
         </Button>
       }
     >
-      <div className="sheet-stack">
+      <div className="sheet-stack sheet-fill-body">
         <Callout tone="info" title="以部署账号运行">
           {windows
             ? "在宿主机上以管理员身份打开 PowerShell，粘贴并运行此脚本，将 SFMC 注册为 Windows 系统服务。"
@@ -56,13 +57,13 @@ export function StartupDrawer({ open, onClose }: { open: boolean; onClose: () =>
         {error && <Callout tone="danger" title="无法生成安装脚本">{error}</Callout>}
         {!plan && !error && <div className="sheet-loading"><Spinner label="正在生成脚本…" /></div>}
         {plan && (
-          <div className="code-frame">
+          <div className="code-frame sheet-code">
             <div className="code-frame-head">
               <Icon name="fileCode" size={14} />
               <span className="mono">{plan.filename}</span>
             </div>
             <Editor
-              height="460px"
+              height="100%"
               theme={editorTheme}
               language={plan.filename.endsWith(".ps1") ? "powershell" : "shell"}
               value={plan.script}

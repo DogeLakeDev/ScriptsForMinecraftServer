@@ -1,0 +1,38 @@
+{
+  "light": {
+    "navBg": "#f5f5f6",
+    "navText": "black",
+    "pageBg": "#f5f5f6",
+    "bgText": "dark",
+    "tabBg": "#ffffff",
+    "tabText": "#8e8e8e",
+    "tabSelected": "#1c1c1c",
+    "tabBorder": "black",
+    "tabOverview": "assets/tabbar/light/overview.png",
+    "tabOverviewActive": "assets/tabbar/light/overview-active.png",
+    "tabTerminal": "assets/tabbar/light/terminal.png",
+    "tabTerminalActive": "assets/tabbar/light/terminal-active.png",
+    "tabTasks": "assets/tabbar/light/tasks.png",
+    "tabTasksActive": "assets/tabbar/light/tasks-active.png",
+    "tabSettings": "assets/tabbar/light/settings.png",
+    "tabSettingsActive": "assets/tabbar/light/settings-active.png"
+  },
+  "dark": {
+    "navBg": "#1d1d1d",
+    "navText": "white",
+    "pageBg": "#1d1d1d",
+    "bgText": "light",
+    "tabBg": "#2a2a2a",
+    "tabText": "#919191",
+    "tabSelected": "#e2e2e2",
+    "tabBorder": "white",
+    "tabOverview": "assets/tabbar/dark/overview.png",
+    "tabOverviewActive": "assets/tabbar/dark/overview-active.png",
+    "tabTerminal": "assets/tabbar/dark/terminal.png",
+    "tabTerminalActive": "assets/tabbar/dark/terminal-active.png",
+    "tabTasks": "assets/tabbar/dark/tasks.png",
+    "tabTasksActive": "assets/tabbar/dark/tasks-active.png",
+    "tabSettings": "assets/tabbar/dark/settings.png",
+    "tabSettingsActive": "assets/tabbar/dark/settings-active.png"
+  }
+}

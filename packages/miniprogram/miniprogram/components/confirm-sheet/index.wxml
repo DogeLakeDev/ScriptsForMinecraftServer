@@ -1,0 +1,43 @@
+<!-- 后台任务确认：WeUI 半屏弹窗，标题 + 影响说明 + 可选强确认 + 提交错误 -->
+<mp-half-screen-dialog
+  show="{{show}}"
+  closabled="{{!pending}}"
+  maskClosable="{{!pending}}"
+  ext-class="confirm-sheet"
+  bindclose="onClose"
+>
+  <view slot="title" class="sheet-title">
+    <view class="tile tile-sm {{danger ? 'tile-danger' : 'tile-progress'}}">
+      <text class="i i-sm {{danger ? 'i-warning' : 'i-zap'}}"></text>
+    </view>
+    <text class="truncate">{{title}}</text>
+  </view>
+  <view slot="desc" class="sheet-body">
+    <text wx:if="{{description}}" class="sheet-desc" user-select>{{description}}</text>
+    <text class="sheet-note">任务提交后在实例上后台执行，关闭小程序不会取消任务。</text>
+    <view wx:if="{{acknowledge}}" class="sheet-ack" bindtap="toggleAck">
+      <view class="check {{acked ? 'on' : ''}}">
+        <text wx:if="{{acked}}" class="i i-sm i-check"></text>
+      </view>
+      <text class="sheet-ack-text">{{acknowledge}}</text>
+    </view>
+    <view wx:if="{{error}}" class="callout tone-danger">
+      <text class="i i-x-circle"></text>
+      <view class="callout-body">
+        <view class="callout-title">提交失败</view>
+        <view class="callout-text" user-select>{{error}}</view>
+      </view>
+    </view>
+  </view>
+  <view slot="footer" class="sheet-actions">
+    <view class="btn btn-lg sheet-btn {{pending ? 'disabled' : ''}}" hover-class="hover" bindtap="cancel">{{cancelText}}</view>
+    <view
+      class="btn btn-lg sheet-btn {{danger ? 'btn-danger' : 'btn-primary'}} {{pending || (acknowledge && !acked) ? 'disabled' : ''}}"
+      hover-class="hover"
+      bindtap="confirm"
+    >
+      <text wx:if="{{pending}}" class="i i-loader spin"></text>
+      <text>{{error ? '重试' : okText}}</text>
+    </view>
+  </view>
+</mp-half-screen-dialog>

@@ -39,7 +39,7 @@ app.on("second-instance", () => { if (window && !window.isDestroyed()) showWindo
 /** SnowUI 窗口底色：浅色 Background/1、深色 Background/1 */
 const THEME_CHROME = {
   light: { background: "#ffffff", overlay: "#ffffff", symbol: "#1c1c1c" },
-  dark: { background: "#17191c", overlay: "#1c1f23", symbol: "#e8eaed" },
+  dark: { background: "#1d1d1d", overlay: "#1f1f1f", symbol: "#e2e2e2" },
 } as const;
 
 /** 当前解析后的明暗（system 跟随 nativeTheme.shouldUseDarkColors） */

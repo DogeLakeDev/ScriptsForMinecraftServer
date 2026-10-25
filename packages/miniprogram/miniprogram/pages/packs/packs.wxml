@@ -1,0 +1,75 @@
+<view class="page">
+  <conn-banner />
+  <view wx:if="{{online && !manualRestart}}" class="callout">
+    <text class="i i-info"></text>
+    <view class="callout-body">
+      <view class="callout-title">请先更新平台</view>
+      <view class="callout-text">当前平台的世界包接口仍会自动停服，升级前只允许查看。</view>
+    </view>
+  </view>
+
+  <view class="row">
+    <view class="btn btn-primary spacer {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="importPacks">
+      <text class="i i-upload"></text>
+      <text>从聊天文件导入</text>
+    </view>
+    <view class="btn {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
+      <text class="i i-restart"></text>
+      <text>重启 BDS</text>
+    </view>
+  </view>
+
+  <view class="surface">
+    <view class="surface-body toolbar">
+      <view class="search search-fill">
+        <text class="i i-search"></text>
+        <input value="{{query}}" placeholder="按名称或 UUID 筛选" placeholder-class="placeholder" bindinput="onQuery" />
+      </view>
+      <view class="segmented">
+        <view class="segmented-item {{kind === 'all' ? 'active' : ''}}" data-value="all" bindtap="setKind">全部 {{counts.all}}</view>
+        <view class="segmented-item {{kind === 'behavior' ? 'active' : ''}}" data-value="behavior" bindtap="setKind">行为包 {{counts.behavior}}</view>
+        <view class="segmented-item {{kind === 'resource' ? 'active' : ''}}" data-value="resource" bindtap="setKind">资源包 {{counts.resource}}</view>
+      </view>
+    </view>
+    <view class="surface-list">
+      <view wx:for="{{rows}}" wx:key="id" class="list-item {{item.enabled ? '' : 'muted-row'}}">
+        <image wx:if="{{item.icon}}" class="pack-icon" src="{{item.icon}}" mode="aspectFill" />
+        <view wx:else class="tile {{item.kind === 'behavior' ? 'tile-pastel-2' : ''}}">
+          <text class="i {{item.kind === 'behavior' ? 'i-cube' : 'i-image'}}"></text>
+        </view>
+        <view class="list-main">
+          <view class="list-title">
+            <text class="truncate">{{item.name}}</text>
+          </view>
+          <view class="row pack-meta">
+            <text class="badge {{item.kind === 'behavior' ? 'tone-accent' : 'tone-info'}}">{{item.kind === 'behavior' ? '行为包' : '资源包'}}</text>
+            <text wx:if="{{item.protected}}" class="badge">平台包</text>
+            <text class="small muted mono">v{{item.version}}</text>
+          </view>
+          <view class="list-sub truncate mono" data-id="{{item.id}}" bindlongpress="copyId">{{item.id}}</view>
+        </view>
+        <view class="list-end">
+          <view class="switch {{item.enabled ? 'on' : ''}} {{editable ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="toggle"></view>
+          <view
+            wx:if="{{canUninstall}}"
+            class="btn btn-sm btn-icon btn-danger-soft {{editable && !item.protected ? '' : 'disabled'}}"
+            hover-class="hover"
+            data-id="{{item.id}}"
+            bindtap="uninstall"
+          >
+            <text class="i i-sm i-trash"></text>
+          </view>
+        </view>
+      </view>
+      <empty-state
+        wx:if="{{!rows.length}}"
+        icon="package"
+        title="{{counts.all ? '没有匹配的世界包' : '当前世界没有安装世界包'}}"
+        desc="{{counts.all ? '' : '先把 .mcpack、.mcaddon 或 .zip 发到微信聊天，再从这里导入'}}"
+      >
+        <view wx:if="{{counts.all}}" class="btn btn-sm" hover-class="hover" bindtap="clearFilters">清除筛选</view>
+      </empty-state>
+    </view>
+  </view>
+</view>
+<confirm-sheet id="confirm" />

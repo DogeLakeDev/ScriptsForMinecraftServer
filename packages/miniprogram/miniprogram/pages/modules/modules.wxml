@@ -1,0 +1,180 @@
+<view class="page">
+  <conn-banner />
+  <view wx:if="{{online && !manualRestart}}" class="callout">
+    <text class="i i-info"></text>
+    <view class="callout-body">
+      <view class="callout-title">请先更新平台</view>
+      <view class="callout-text">当前平台的模块接口仍会自动停服，升级前只允许查看。</view>
+    </view>
+  </view>
+
+  <view class="row">
+    <view class="segmented spacer">
+      <view class="segmented-item {{tab === 'installed' ? 'active' : ''}}" data-value="installed" bindtap="setTab">
+        <text class="i i-sm i-list"></text>已安装<text class="segmented-count">{{counts.all}}</text>
+      </view>
+      <view class="segmented-item {{tab === 'discover' ? 'active' : ''}}" data-value="discover" bindtap="setTab">
+        <text class="i i-sm i-search"></text>可安装
+      </view>
+    </view>
+    <view class="btn {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
+      <text class="i i-restart"></text>
+      <text>重启 BDS</text>
+    </view>
+  </view>
+
+  <!-- 已安装 -->
+  <view wx:if="{{tab === 'installed'}}" class="surface">
+    <view class="surface-body toolbar">
+      <view class="search search-fill">
+        <text class="i i-search"></text>
+        <input value="{{query}}" placeholder="筛选模块" placeholder-class="placeholder" bindinput="onQuery" />
+      </view>
+      <view class="segmented">
+        <view class="segmented-item {{status === 'all' ? 'active' : ''}}" data-value="all" bindtap="setStatus">全部 {{counts.all}}</view>
+        <view class="segmented-item {{status === 'enabled' ? 'active' : ''}}" data-value="enabled" bindtap="setStatus">已启用 {{counts.enabled}}</view>
+        <view class="segmented-item {{status === 'disabled' ? 'active' : ''}}" data-value="disabled" bindtap="setStatus">已停用 {{counts.disabled}}</view>
+      </view>
+    </view>
+    <view class="surface-list">
+      <view wx:for="{{installed}}" wx:key="folder" class="list-item {{item.enabled ? '' : 'muted-row'}}">
+        <view class="tile {{item.enabled ? 'tile-pastel-2' : 'tile-neutral'}}"><text class="i i-modules"></text></view>
+        <view class="list-main">
+          <view class="list-title">
+            <text class="truncate">{{item.title}}</text>
+            <text wx:if="{{item.linked}}" class="badge tone-info"><text class="i i-sm i-link"></text>本地链接</text>
+          </view>
+          <view class="list-sub truncate mono">{{item.sub}} · {{item.version}}</view>
+        </view>
+        <view class="list-end">
+          <view class="switch {{item.enabled ? 'on' : ''}} {{editable ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="toggle"></view>
+          <view
+            class="btn btn-sm btn-icon btn-danger-soft {{editable && !item.linked ? '' : 'disabled'}}"
+            hover-class="hover"
+            data-folder="{{item.folder}}"
+            bindtap="uninstall"
+          >
+            <text class="i i-sm i-trash"></text>
+          </view>
+        </view>
+      </view>
+      <empty-state wx:if="{{!installed.length}}" icon="modules" title="{{counts.all ? '没有匹配的模块' : '尚未安装模块'}}">
+        <view wx:if="{{counts.all}}" class="btn btn-sm" hover-class="hover" bindtap="clearFilters">清除筛选</view>
+      </empty-state>
+    </view>
+  </view>
+
+  <!-- 可安装 -->
+  <block wx:if="{{tab === 'discover'}}">
+    <view class="row">
+      <view class="search search-fill">
+        <text class="i i-search"></text>
+        <input value="{{search}}" placeholder="搜索官方模块索引" placeholder-class="placeholder" confirm-type="search" bindinput="onSearchInput" bindconfirm="onSearchConfirm" />
+      </view>
+      <view class="btn" hover-class="hover" bindtap="onSearchConfirm">
+        <text wx:if="{{loading}}" class="i i-loader spin"></text>
+        <text>搜索</text>
+      </view>
+    </view>
+    <view wx:if="{{stale}}" class="callout tone-warning">
+      <text class="i i-warning"></text>
+      <view class="callout-body"><view class="callout-text">模块索引暂时无法访问，显示的是离线缓存。</view></view>
+    </view>
+    <view wx:if="{{error}}" class="callout tone-danger">
+      <text class="i i-x-circle"></text>
+      <view class="callout-body">
+        <view class="callout-title">无法读取模块索引</view>
+        <view class="callout-text">{{error}}</view>
+      </view>
+    </view>
+    <view wx:for="{{registry}}" wx:key="id" class="surface card" hover-class="card-hover" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="row">
+        <view class="tile"><text class="i i-modules"></text></view>
+        <view class="list-main">
+          <view class="b truncate">{{item.title}}</view>
+          <view class="small muted mono truncate">{{item.source}}</view>
+        </view>
+      </view>
+      <view wx:if="{{item.description}}" class="card-desc">{{item.description}}</view>
+      <view class="row wrap">
+        <text wx:if="{{item.version}}" class="badge mono">v{{item.version}}</text>
+        <text wx:if="{{item.sdk}}" class="badge mono">SDK {{item.sdk}}</text>
+        <text wx:if="{{item.dependency === 'ok'}}" class="badge tone-success">依赖已满足</text>
+        <text wx:if="{{item.dependency === 'blocked'}}" class="badge tone-warning">依赖未满足</text>
+      </view>
+      <view class="row card-foot">
+        <view class="spacer small">
+          <block wx:if="{{item.local}}">
+            <text class="mono muted">本地 {{item.local}}</text>
+            <text wx:if="{{item.differentVersion}}" class="text-info"> 版本不同</text>
+          </block>
+        </view>
+        <view
+          class="btn btn-sm {{item.local ? '' : 'btn-primary'}} {{editable && !item.local ? '' : 'disabled'}}"
+          hover-class="hover"
+          data-id="{{item.id}}"
+          catchtap="install"
+        >
+          <text class="i i-sm {{item.local ? 'i-check' : 'i-download'}}"></text>
+          <text>{{item.local ? '已安装' : '安装'}}</text>
+        </view>
+      </view>
+    </view>
+    <empty-state wx:if="{{registryLoaded && !registry.length && !error}}" icon="search" title="没有找到模块" />
+    <view wx:if="{{!registryLoaded && loading}}" class="small muted center">正在读取模块索引…</view>
+  </block>
+</view>
+
+<!-- 模块详情 -->
+<mp-half-screen-dialog show="{{!!detail}}" bindclose="closeDetail" ext-class="module-sheet">
+  <view slot="title" class="row sheet-title">
+    <view wx:if="{{detail.canBack}}" class="btn btn-sm btn-icon btn-ghost" catchtap="backDetail">
+      <text class="i i-sm i-chevron-down back-icon"></text>
+    </view>
+    <text class="truncate">{{detail.title}}</text>
+  </view>
+  <view slot="desc" class="sheet-body">
+    <view wx:if="{{!detail.found}}" class="callout tone-warning">
+      <text class="i i-warning"></text>
+      <view class="callout-body"><view class="callout-text">模块索引里没有找到 {{detail.id}}。</view></view>
+    </view>
+    <text wx:if="{{detail.description}}" class="sheet-desc">{{detail.description}}</text>
+    <view class="kv">
+      <block wx:if="{{detail.version}}"><text class="kv-key">版本</text><text class="kv-value mono">{{detail.version}}</text></block>
+      <block wx:if="{{detail.sdk}}"><text class="kv-key">SDK</text><text class="kv-value mono">{{detail.sdk}}</text></block>
+      <block wx:if="{{detail.license}}"><text class="kv-key">许可</text><text class="kv-value">{{detail.license}}</text></block>
+      <block wx:if="{{detail.source}}"><text class="kv-key">来源</text><text class="kv-value mono" user-select>{{detail.source}}</text></block>
+      <block wx:if="{{detail.local}}"><text class="kv-key">本地版本</text><text class="kv-value mono">{{detail.local}}</text></block>
+    </view>
+    <view class="field-label">依赖</view>
+    <view wx:if="{{!detail.declared}}" class="small muted">索引未声明依赖名单。</view>
+    <view wx:elif="{{!detail.dependencies.length}}" class="small muted">没有额外依赖。</view>
+    <view wx:for="{{detail.dependencies}}" wx:key="id" class="dep-row">
+      <text class="dot tone-{{item.tone}}"></text>
+      <view class="list-main">
+        <view class="truncate">{{item.title}}</view>
+        <view class="small text-{{item.tone}}">{{item.label}}</view>
+      </view>
+      <text wx:if="{{item.catalogId}}" class="link" data-id="{{item.catalogId}}" bindtap="openDependency">查看</text>
+    </view>
+    <view wx:if="{{detail.blocked}}" class="callout tone-warning">
+      <text class="i i-warning"></text>
+      <view class="callout-body">
+        <view class="callout-text">请先安装并启用缺少的依赖，或到已安装列表里启用停用的模块。</view>
+        <view class="link dep-link" bindtap="showInstalled">查看已安装模块</view>
+      </view>
+    </view>
+  </view>
+  <view slot="footer" class="sheet-actions">
+    <view
+      class="btn btn-lg btn-primary btn-block {{detail.canInstall ? '' : 'disabled'}}"
+      hover-class="hover"
+      data-id="{{detail.id}}"
+      bindtap="install"
+    >
+      <text class="i {{detail.local ? 'i-check' : 'i-download'}}"></text>
+      <text>{{detail.local ? '已安装' : '安装'}}</text>
+    </view>
+  </view>
+</mp-half-screen-dialog>
+<confirm-sheet id="confirm" />

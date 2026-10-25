@@ -7,6 +7,8 @@ import { Duplex, Readable, Writable } from "node:stream";
 import { ManagementClient } from "@sfmc-bds/management/node";
 import type { Credentials, InstanceProfile } from "../shared/api.js";
 import { ensureLocalRuntime, payload, checkedDownload, releaseManifest, verifyMaterial, launcherSource } from "./runtime.js";
+import { openGateway, type GatewayLink } from "./gateway.js";
+import { uploadUrl } from "../shared/gateway-url.js";
 import { trustedHosts, trustHost } from "./hosts.js";
 
 const shellQuote = (text: string) => "'" + text.replace(/'/g, "'\\''") + "'";
@@ -17,9 +19,15 @@ export class Session {
   client?: ManagementClient;
   ssh?: Client;
   child?: ChildProcess;
+  /** 网关 WebSocket。断开时只关这条通道，不停止服务器。 */
+  private gateway?: GatewayLink;
   private sftp?: SFTPWrapper;
   constructor(readonly profile: InstanceProfile, private credentials: Credentials, private notify: (message: string, progress?: number) => void) {
-    this.credentials = { ...(typeof credentials.password === "string" ? { password: credentials.password } : {}), ...(typeof credentials.passphrase === "string" ? { passphrase: credentials.passphrase } : {}) };
+    this.credentials = {
+      ...(typeof credentials.password === "string" && credentials.password ? { password: credentials.password } : {}),
+      ...(typeof credentials.passphrase === "string" && credentials.passphrase ? { passphrase: credentials.passphrase } : {}),
+      ...(typeof credentials.token === "string" && credentials.token.trim() ? { token: credentials.token.trim() } : {}),
+    };
   }
   async connect() {
     if (this.profile.kind === "local") {
@@ -29,6 +37,13 @@ export class Session {
       child.on("error", error => this.notify(error.message));
       child.stderr?.on("data", () => {});
       this.client = new ManagementClient(Duplex.fromWeb({ readable: Readable.toWeb(child.stdout!), writable: Writable.toWeb(child.stdin!) }));
+    } else if (this.profile.kind === "gateway") {
+      const endpoint = this.profile.endpoint;
+      const token = this.credentials.token;
+      if (!endpoint || !token) throw new Error("请填写网关地址和访问令牌");
+      this.notify("正在连接管理网关");
+      this.gateway = await openGateway(endpoint, token);
+      this.client = new ManagementClient(this.gateway.stream);
     } else {
       await this.connectSsh();
       const runtime = await this.prepareRemote();
@@ -40,7 +55,8 @@ export class Session {
       this.client = new ManagementClient(stream);
     }
     this.client.on("disconnected", message => this.notify(`管理连接已断开: ${String(message)}`));
-    return this.client.handshake(this.profile.root);
+    // 网关会把握手目录改写成它自己的 --root，客户端不指定目录。
+    return this.client.handshake(this.profile.kind === "gateway" ? undefined : this.profile.root);
   }
   private async connectSsh() {
     const ssh = new Client(); this.ssh = ssh;
@@ -154,6 +170,7 @@ export class Session {
    * 使用场景：单个导入，以及批量导入时由 uploadPacks 逐个调用。stamp 用来区分同一次选择里的多个文件。
    */
   async uploadPack(local: string, stamp = String(Date.now())) {
+    if (this.profile.kind === "gateway") return this.uploadPackViaGateway(local);
     const safe = path.basename(local).replace(/[^a-zA-Z0-9_.-]/g, "_") || "pack";
     const prefix = `${stamp}-`;
     const room = 128 - prefix.length;
@@ -168,6 +185,26 @@ export class Session {
     }
     return { filename };
   }
+  /**
+   * 经网关上传世界包。文件名用原名，收件箱里的最终名称以网关返回为准。
+   * 使用场景：网关实例的世界包导入，对应 PUT …/packs/inbox。
+   */
+  private async uploadPackViaGateway(local: string) {
+    const endpoint = this.profile.endpoint;
+    const token = this.credentials.token;
+    if (!endpoint || !token) throw new Error("网关地址或访问令牌缺失");
+    const stat = await fs.promises.stat(local);
+    // Node 的 fetch 接受文件流并要求 duplex: "half"；DOM 的 RequestInit 两者都不认，按运行时类型传入。
+    const response = await fetch(uploadUrl(endpoint, path.basename(local)), {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/octet-stream", "content-length": String(stat.size) },
+      body: fs.createReadStream(local),
+      duplex: "half",
+    } as unknown as RequestInit);
+    const body = await response.json() as { filename?: string; error?: string };
+    if (!response.ok || !body.filename) throw new Error(body.error || `上传世界包失败 (${response.status})`);
+    return { filename: body.filename };
+  }
   /** 按选择顺序把多个世界包复制到收件箱。使用场景：多选对话框和拖入文件。 */
   async uploadPacks(locals: string[]) {
     const start = Date.now();
@@ -180,5 +217,5 @@ export class Session {
     return uploaded;
   }
   /** 只关闭这条管理通道。守护进程在登录会话之外，结束 SSH 或本地 stdio 不会停止服务器进程。 */
-  disconnect() { this.client?.disconnect(); this.ssh?.end(); this.child?.stdin?.end(); this.credentials = {}; }
+  disconnect() { this.client?.disconnect(); this.gateway?.close(); this.ssh?.end(); this.child?.stdin?.end(); this.credentials = {}; }
 }

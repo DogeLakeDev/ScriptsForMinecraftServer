@@ -1,0 +1,4 @@
+<view class="chart-wrap">
+  <canvas type="2d" id="chart" class="chart" style="height: {{height}}px" bindtouchstart="onTouch" bindtouchmove="onTouch"></canvas>
+  <view wx:if="{{readout}}" class="readout">{{readout}}</view>
+</view>

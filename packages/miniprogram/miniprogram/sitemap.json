@@ -1,0 +1,4 @@
+{
+  "desc": "管理工具不需要被微信搜索收录",
+  "rules": [{ "action": "disallow", "page": "*" }]
+}

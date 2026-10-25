@@ -112,7 +112,7 @@ function ServiceRow({ row }: { row: ServiceStatusRow }) {
 }
 
 export function OverviewPage() {
-  const { model, editable, submit, setPage, request, openLog } = useDesktop();
+  const { model, selected, editable, submit, setPage, request, openLog } = useDesktop();
   const { alerts, openAlerts } = useAlerts();
   const [startupOpen, setStartupOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -202,8 +202,13 @@ export function OverviewPage() {
                       description: "将按依赖顺序停止所有托管服务。",
                     }),
                 },
-                { type: "separator", key: "sep" },
-                { key: "startup", icon: "power", label: "配置开机启动…", onSelect: () => setStartupOpen(true) },
+                // 开机启动脚本需要在服务器本机执行，网关不放行 startup.plan。
+                ...(selected?.kind === "gateway"
+                  ? []
+                  : [
+                      { type: "separator" as const, key: "sep" },
+                      { key: "startup", icon: "power" as const, label: "配置开机启动…", onSelect: () => setStartupOpen(true) },
+                    ]),
               ]}
               width={200}
             />

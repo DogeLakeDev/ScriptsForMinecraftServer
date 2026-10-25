@@ -1,0 +1,5 @@
+/* 全局样式入口：SnowUI 颜色令牌（含 WeUI 变量映射）→ 生成的图标 → 通用组件类 */
+@import "styles/palette.wxss";
+@import "styles/tokens.wxss";
+@import "styles/icons.wxss";
+@import "styles/base.wxss";

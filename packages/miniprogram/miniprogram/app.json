@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/overview/overview",
+    "pages/console/console",
+    "pages/tasks/tasks",
+    "pages/manage/manage",
+    "pages/instances/instances",
+    "pages/instance-edit/instance-edit",
+    "pages/modules/modules",
+    "pages/packs/packs",
+    "pages/config/config",
+    "pages/config-edit/config-edit",
+    "pages/players/players",
+    "pages/updates/updates"
+  ],
+  "window": {
+    "navigationBarTitleText": "SFMC",
+    "navigationBarBackgroundColor": "@navBg",
+    "navigationBarTextStyle": "@navText",
+    "backgroundColor": "@pageBg",
+    "backgroundColorTop": "@pageBg",
+    "backgroundColorBottom": "@pageBg",
+    "backgroundTextStyle": "@bgText"
+  },
+  "tabBar": {
+    "color": "@tabText",
+    "selectedColor": "@tabSelected",
+    "backgroundColor": "@tabBg",
+    "borderStyle": "@tabBorder",
+    "list": [
+      { "pagePath": "pages/overview/overview", "text": "实例", "iconPath": "@tabOverview", "selectedIconPath": "@tabOverviewActive" },
+      { "pagePath": "pages/console/console", "text": "控制台", "iconPath": "@tabTerminal", "selectedIconPath": "@tabTerminalActive" },
+      { "pagePath": "pages/tasks/tasks", "text": "任务", "iconPath": "@tabTasks", "selectedIconPath": "@tabTasksActive" },
+      { "pagePath": "pages/manage/manage", "text": "管理", "iconPath": "@tabSettings", "selectedIconPath": "@tabSettingsActive" }
+    ]
+  },
+  "usingComponents": {
+    "confirm-sheet": "/components/confirm-sheet/index",
+    "conn-banner": "/components/conn-banner/index",
+    "empty-state": "/components/empty-state/index",
+    "mp-actionSheet": "weui-miniprogram/actionsheet/actionsheet",
+    "mp-half-screen-dialog": "weui-miniprogram/half-screen-dialog/half-screen-dialog"
+  },
+  "useExtendedLib": {
+    "weui": true
+  },
+  "darkmode": true,
+  "themeLocation": "theme.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

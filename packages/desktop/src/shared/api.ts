@@ -1,10 +1,12 @@
 import type { ManagementEvent, ManagementMethod, ManagementMethodMap, Handshake, ReleaseNotes } from "@sfmc-bds/management";
 export interface InstanceProfile {
-  id: string; name: string; kind: "local" | "ssh"; root: string;
+  id: string; name: string; kind: "local" | "ssh" | "gateway"; root: string;
   host?: string; port?: number; username?: string; os?: "linux" | "windows";
   privateKeyPath?: string; remember?: boolean; hasCredential?: boolean;
+  /** 管理网关地址，例如 https://mc.example.com/sfmc。仅 kind 为 gateway 时使用。 */
+  endpoint?: string;
 }
-export interface Credentials { password?: string; passphrase?: string }
+export interface Credentials { password?: string; passphrase?: string; token?: string }
 /**
  * 外观模式：跟随系统 / 浅色 / 深色。
  * 使用场景：渲染层主题切换后通过 appearance() 通知主进程，

@@ -1,0 +1,674 @@
+/*
+ * base.wxss — 页面通用版式与组件类（移动端 SnowUI）
+ *
+ * 规范沿用桌面端：正文 14/20、元信息 12/16；字重只用 400 / 600；圆角 6 / 8 / 12 / 16 / 20；0.5px 发丝线。
+ * 页面与开启 addGlobalClass 的自定义组件都可直接使用这些类。
+ */
+
+/* ---------- 页面骨架 ---------- */
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 标签页：原生标签栏位于页面之外并自行处理底部安全区，页面不再额外留出 */
+.page.with-tabbar {
+  padding-bottom: 24px;
+}
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.page-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.page-title {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.page-desc {
+  margin-top: 2px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.spacer {
+  flex: 1;
+}
+.muted {
+  color: var(--c-text-3);
+}
+.small {
+  font-size: 12px;
+  line-height: 16px;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.b {
+  font-weight: 600;
+}
+.link {
+  color: var(--c-info-text);
+  font-size: 12px;
+  line-height: 16px;
+}
+.selectable {
+  user-select: text;
+}
+
+/* ---------- 图标（遮罩图标，颜色跟随 currentColor；各图标的遮罩见生成的 icons.wxss） ---------- */
+.i {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  vertical-align: middle;
+}
+.i-sm {
+  width: 13px;
+  height: 13px;
+}
+.i-lg {
+  width: 20px;
+  height: 20px;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- 区块（Surface） ---------- */
+.surface {
+  background: var(--c-block);
+  border-radius: 20px;
+  overflow: hidden;
+}
+.surface-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 4px;
+}
+.surface-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.surface-sub {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+  margin-top: 2px;
+}
+.surface-body {
+  padding: 8px 16px 16px;
+}
+.surface-list {
+  padding: 4px 8px 8px;
+}
+
+/* ---------- 色块图标 ---------- */
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--c-pastel-1);
+  color: var(--c-on-pastel);
+}
+.tile-sm {
+  width: 24px;
+  height: 24px;
+}
+.tile-pastel-2 {
+  background: var(--c-pastel-2);
+}
+.tile-neutral {
+  background: var(--c-fill-2);
+  color: var(--c-text-2);
+}
+.tile-success {
+  background: var(--c-success-soft);
+  color: var(--c-success-text);
+}
+.tile-info {
+  background: var(--c-info-soft);
+  color: var(--c-info-text);
+}
+.tile-warning {
+  background: var(--c-warning-soft);
+  color: var(--c-warning-text);
+}
+.tile-danger {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+.tile-progress,
+.tile-accent {
+  background: var(--c-progress-soft);
+  color: var(--c-progress-text);
+}
+/* 多色底块：设置类入口每行一种颜色（参考 Android 16 设置首页），底色与图标为同色相的一对 M3 色调 */
+.tile-blue {
+  background: var(--c-tile-blue);
+  color: var(--c-on-tile-blue);
+}
+.tile-green {
+  background: var(--c-tile-green);
+  color: var(--c-on-tile-green);
+}
+.tile-orange {
+  background: var(--c-tile-orange);
+  color: var(--c-on-tile-orange);
+}
+.tile-violet {
+  background: var(--c-tile-violet);
+  color: var(--c-on-tile-violet);
+}
+.tile-teal {
+  background: var(--c-tile-teal);
+  color: var(--c-on-tile-teal);
+}
+.tile-pink {
+  background: var(--c-tile-pink);
+  color: var(--c-on-tile-pink);
+}
+
+/* ---------- 列表行 ---------- */
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+.list-item.hover {
+  background: var(--c-fill);
+}
+.list-item + .list-item {
+  position: relative;
+}
+.list-item + .list-item::before {
+  content: "";
+  position: absolute;
+  left: 52px;
+  right: 8px;
+  top: 0;
+  border-top: 0.5px solid var(--c-line);
+}
+.list-main {
+  flex: 1;
+  min-width: 0;
+}
+.list-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.list-title > .truncate {
+  font-weight: 600;
+}
+.list-sub {
+  margin-top: 2px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.list-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.muted-row {
+  opacity: 0.6;
+}
+
+/* ---------- 徽章 / 状态点 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--c-fill);
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  font-weight: 400;
+}
+.badge.tone-success {
+  background: var(--c-success-soft);
+  color: var(--c-success-text);
+}
+.badge.tone-info {
+  background: var(--c-info-soft);
+  color: var(--c-info-text);
+}
+.badge.tone-warning {
+  background: var(--c-warning-soft);
+  color: var(--c-warning-text);
+}
+.badge.tone-danger {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+.badge.tone-progress,
+.badge.tone-accent {
+  background: var(--c-progress-soft);
+  color: var(--c-progress-text);
+}
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--c-text-4);
+}
+/* 标签里的状态点：<text> 嵌套时内容在同一个行内元素里，.badge 的 gap 不生效，用外边距隔开文字 */
+.badge .dot {
+  margin-right: 5px;
+}
+.dot.tone-success {
+  background: var(--c-success);
+}
+.dot.tone-info {
+  background: var(--c-info);
+}
+.dot.tone-warning {
+  background: var(--c-warning);
+}
+.dot.tone-danger {
+  background: var(--c-danger);
+}
+.dot.pulse {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.text-success {
+  color: var(--c-success-text);
+}
+.text-info {
+  color: var(--c-info-text);
+}
+.text-warning {
+  color: var(--c-warning-text);
+}
+.text-danger {
+  color: var(--c-danger-text);
+}
+.text-neutral {
+  color: var(--c-text-3);
+}
+
+/* ---------- 按钮（不用原生 button，避免各端默认样式） ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--c-fill);
+  color: var(--c-text);
+  font-size: 14px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.btn.hover {
+  background: var(--c-fill-2);
+}
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  gap: 4px;
+}
+.btn-lg {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+}
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+.btn-icon {
+  width: 36px;
+  padding: 0;
+}
+.btn-sm.btn-icon {
+  width: 28px;
+}
+.btn-primary {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+.btn-primary.hover {
+  opacity: 0.86;
+  background: var(--c-primary);
+}
+.btn-ghost {
+  background: transparent;
+}
+.btn-danger {
+  background: var(--c-danger);
+  color: var(--c-on-danger);
+}
+.btn-danger-soft {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+.btn.disabled {
+  opacity: 0.4;
+}
+
+/* ---------- 开关（与桌面端 Switch 同样式） ---------- */
+.switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--c-text-4);
+  box-sizing: border-box;
+  transition: background 0.2s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.switch.on {
+  background: var(--c-primary);
+}
+.switch.on::after {
+  transform: translateX(16px);
+  background: var(--c-on-primary);
+}
+.switch.disabled {
+  opacity: 0.4;
+}
+
+/* ---------- 分段选择 ---------- */
+.segmented {
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 10px;
+  background: var(--c-fill);
+}
+.segmented-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--c-text-2);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.segmented-item.active {
+  background: var(--c-block);
+  color: var(--c-text);
+  font-weight: 600;
+  box-shadow: 0 0 0 0.5px var(--c-line), 0 1px 3px rgba(28, 28, 28, 0.06);
+}
+.segmented-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--c-fill-2);
+  color: var(--c-text-2);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 400;
+}
+.segmented-count.danger {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+
+/* ---------- 筛选胶囊 ---------- */
+.chips {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--c-block);
+  color: var(--c-text-2);
+  font-size: 12px;
+  box-shadow: inset 0 0 0 0.5px var(--c-line);
+}
+.chip.active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  box-shadow: none;
+}
+.chip-count {
+  opacity: 0.7;
+}
+
+/* ---------- 输入 ---------- */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--c-block);
+  color: var(--c-text-3);
+  box-sizing: border-box;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  color: var(--c-text);
+  font-size: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+.field-input {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--c-block);
+  color: var(--c-text);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+.field-hint {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.field-error {
+  color: var(--c-danger-text);
+  font-size: 12px;
+  line-height: 16px;
+}
+.placeholder {
+  color: var(--c-text-4);
+}
+
+/* ---------- 提示条 ---------- */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--c-info-soft);
+  color: var(--c-info-text);
+}
+.callout.tone-warning {
+  background: var(--c-warning-soft);
+  color: var(--c-warning-text);
+}
+.callout.tone-danger {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-text);
+}
+.callout.tone-success {
+  background: var(--c-success-soft);
+  color: var(--c-success-text);
+}
+.callout .i {
+  margin-top: 2px;
+}
+.callout-body {
+  flex: 1;
+  min-width: 0;
+}
+.callout-title {
+  font-weight: 600;
+}
+.callout-text {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 20px;
+  opacity: 0.88;
+  word-break: break-all;
+}
+
+/* ---------- 键值 / 代码 ---------- */
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.kv-key {
+  color: var(--c-text-3);
+}
+.kv-value {
+  min-width: 0;
+  word-break: break-all;
+}
+.code {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--c-fill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---------- 动态流（告警 / 任务） ---------- */
+.feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 12px;
+}
+.feed-item.hover {
+  background: var(--c-fill);
+}
+.feed-text {
+  flex: 1;
+  min-width: 0;
+}
+.feed-meta {
+  margin-top: 2px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ---------- 底部操作条 ---------- */
+.save-bar {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--c-elevated);
+  box-shadow: 0 0 0 0.5px var(--c-line), 0 8px 24px rgba(28, 28, 28, 0.12);
+}

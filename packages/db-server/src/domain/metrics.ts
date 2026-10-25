@@ -83,9 +83,32 @@ export interface ResourceSample {
   hostUsedMb: number | null;
   dbMb: number | null;
   bdsMb: number | null;
+  /**
+   * 其余已登记进程的内存（MB）。
+   * 使用场景：守护进程、QQ 桥、隧道、LLBot、附属进程。旧采样没有该字段；键缺省表示当时没采到。
+   */
+  partsMb?: Record<string, number>;
 }
 const memoryMb = (value: unknown) =>
   value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 8_388_608);
+/** 进程角色键。附属进程用 sidecar:<模块 id>。 */
+const partKey = (key: string) => /^[a-z0-9][a-z0-9_:-]{0,80}$/i.test(key);
+const memoryNumber = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 8_388_608;
+
+/**
+ * 丢掉不合法的分项，保留能用的数字。
+ * 使用场景：读历史时旧数据或损坏字段不能把整条主机/BDS 采样丢掉。
+ */
+function sanitizeParts(value: unknown): Record<string, number> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const parts: Record<string, number> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (!partKey(key) || !memoryNumber(item)) continue;
+    parts[key] = item;
+  }
+  return Object.keys(parts).length ? parts : undefined;
+}
 
 export class ResourceHistory {
   private lastWrite = 0;
@@ -95,8 +118,17 @@ export class ResourceHistory {
   }
   append(sample: ResourceSample): void {
     if (sample.recordedAt - this.lastWrite < RESOURCE_SAMPLE_MS) return;
-    if (sample.hostUsedMb === null && sample.dbMb === null && sample.bdsMb === null) return;
+    const partsMb = sanitizeParts(sample.partsMb);
+    if (sample.hostUsedMb === null && sample.dbMb === null && sample.bdsMb === null && !partsMb) return;
     if (!memoryMb(sample.hostUsedMb) || !memoryMb(sample.dbMb) || !memoryMb(sample.bdsMb)) return;
+    // 分项里的坏键丢掉，主机和 BDS、数据服务仍按原来的规则落库。
+    sample = {
+      recordedAt: sample.recordedAt,
+      hostUsedMb: sample.hostUsedMb,
+      dbMb: sample.dbMb,
+      bdsMb: sample.bdsMb,
+      ...(partsMb ? { partsMb } : {}),
+    };
     this.query("INSERT OR REPLACE INTO sfmc_resource_metrics (recorded_at, sample) VALUES (?, ?)", [
       sample.recordedAt,
       JSON.stringify(sample),
@@ -211,7 +243,14 @@ function parseResourceRows(rows: { sample: string }[]): ResourceSample[] {
     try {
       const sample = JSON.parse(row.sample) as ResourceSample;
       if (!memoryMb(sample.hostUsedMb) || !memoryMb(sample.dbMb) || !memoryMb(sample.bdsMb)) return [];
-      return [sample];
+      const partsMb = sanitizeParts(sample.partsMb);
+      return [{
+        recordedAt: sample.recordedAt,
+        hostUsedMb: sample.hostUsedMb,
+        dbMb: sample.dbMb,
+        bdsMb: sample.bdsMb,
+        ...(partsMb ? { partsMb } : {}),
+      }];
     } catch {
       return [];
     }

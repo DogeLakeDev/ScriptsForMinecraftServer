@@ -1,21 +1,22 @@
 /**
  * Gates.tsx — 工作区之前的两个整页状态
  *
- * Welcome：尚无任何实例时的首启引导（选择本机或 SSH）。
- * ConnectGate：已选实例但还没连上时的页面。有保存的凭据时打开应用会自动连接，这里只处理失败和需要输入密码的情况。
+ * Welcome：尚无任何实例时的首启引导（本机、SSH 或管理网关）。
+ * ConnectGate：已选实例但还没连上时的页面。有保存的凭据时打开应用会自动连接，这里只处理失败和需要输入密码或令牌的情况。
  */
 import { useDesktop } from "../app/desktop.js";
 import { Button } from "./controls.js";
 import { Icon, type IconName } from "./icons.js";
-import { profileSubtitle } from "./Sidebar.js";
+import { profileIcon, profileSubtitle } from "./Sidebar.js";
 import { Callout } from "./ui.js";
 
 /** 首启欢迎页 */
 export function Welcome() {
   const { openProfileDialog } = useDesktop();
-  const choices: { kind: "local" | "ssh"; icon: IconName; title: string; text: string }[] = [
+  const choices: { kind: "local" | "ssh" | "gateway"; icon: IconName; title: string; text: string }[] = [
     { kind: "local", icon: "monitor", title: "本机", text: "Windows 上的 SFMC 部署目录" },
     { kind: "ssh", icon: "server", title: "远程服务器", text: "Linux 或 Windows，通过 SSH 连接" },
+    { kind: "gateway", icon: "globe", title: "管理网关", text: "连接已在服务器上运行的网关，与小程序相同" },
   ];
   return (
     <div className="welcome">
@@ -47,7 +48,7 @@ export function ConnectGate() {
     <div className="gate">
       <div className="gate-card">
         <div className="gate-head">
-          <span className="gate-icon"><Icon name={selected.kind === "ssh" ? "server" : "monitor"} size={22} /></span>
+          <span className="gate-icon"><Icon name={profileIcon(selected.kind)} size={22} /></span>
           <div>
             <h1>{selected.name}</h1>
             <p className="mono truncate" title={profileSubtitle(selected)}>{profileSubtitle(selected)}</p>

@@ -1,0 +1,13 @@
+.chart-wrap {
+  width: 100%;
+}
+.chart {
+  display: block;
+  width: 100%;
+}
+.readout {
+  margin-top: 4px;
+  color: var(--c-text-2);
+  font-size: 11px;
+  line-height: 16px;
+}

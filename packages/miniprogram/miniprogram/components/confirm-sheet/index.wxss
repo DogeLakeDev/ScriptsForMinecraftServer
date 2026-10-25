@@ -1,0 +1,64 @@
+.sheet-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+.sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
+  text-align: left;
+}
+.sheet-desc {
+  color: var(--c-text);
+  font-size: 15px;
+  line-height: 22px;
+}
+.sheet-note {
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.sheet-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--c-danger-soft);
+}
+.sheet-ack-text {
+  flex: 1;
+  color: var(--c-danger-text);
+  font-size: 13px;
+  line-height: 20px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1.5px var(--c-danger);
+  color: var(--c-on-danger);
+}
+.check.on {
+  background: var(--c-danger);
+  box-shadow: none;
+}
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.sheet-btn {
+  flex: 1;
+}

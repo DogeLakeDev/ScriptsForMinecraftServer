@@ -369,6 +369,11 @@ export function installMockBridge() {
         hostUsedMb: 3100 + Math.round(wave * 280),
         dbMb: 170 + (i % 4) * 6,
         bdsMb: i > 70 && i < 76 ? null : 1280 + Math.round(Math.cos(i / 6) * 160),
+        partsMb: {
+          daemon: 96 + (i % 3) * 4,
+          qq: 140 + Math.round(Math.sin(i / 5) * 12),
+          "sidecar:bluemap": 220 + (i % 5) * 8,
+        },
       });
     }
     const current = history[history.length - 1]!;
@@ -386,6 +391,11 @@ export function installMockBridge() {
       processes: {
         db: { pid: 17920, running: true, memoryMb: latest.dbMb, cpuSeconds: 88.2 },
         bds: { pid: 18244, running: true, memoryMb: latest.bdsMb, cpuSeconds: 640.5 },
+        parts: [
+          { key: "daemon", label: "守护进程", pid: 4100, running: true, memoryMb: latest.partsMb?.daemon ?? null, cpuSeconds: 40.2 },
+          { key: "qq", label: "QQ 桥", pid: 4108, running: true, memoryMb: latest.partsMb?.qq ?? null, cpuSeconds: 12.4 },
+          { key: "sidecar:bluemap", label: "bluemap", pid: 4220, running: true, memoryMb: latest.partsMb?.["sidecar:bluemap"] ?? null, cpuSeconds: 33.1 },
+        ],
       },
       resourcesUpdatedAt: now,
     };

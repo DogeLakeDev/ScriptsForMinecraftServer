@@ -22,6 +22,32 @@ interface SidecarSpec {
 
 /** 本轮 BDS 拉起的附属进程。停服时只结束这些，不碰用户另外开的进程。 */
 const children = new Map<string, ChildProcess>();
+/** 本轮附属进程所属的实例根，运行态文件写到该目录的 .sfmc。 */
+let runtimeRoot = "";
+
+/**
+ * 把当前仍活着的附属进程 PID 写到 .sfmc/sidecars.runtime.json。
+ * 使用场景：数据服务据此统计各地图等附属进程的内存。进程都退出后删掉文件。
+ */
+function persistSidecars(): void {
+  if (!runtimeRoot) return;
+  const file = path.join(runtimeRoot, ".sfmc", "sidecars.runtime.json");
+  const processes = [...children.entries()].flatMap(([id, child]) => {
+    const pid = child.pid ?? 0;
+    if (!pid || child.exitCode !== null) return [];
+    return [{ id, pid }];
+  });
+  try {
+    if (!processes.length) {
+      fs.unlinkSync(file);
+      return;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ processes }) + "\n");
+  } catch {
+    /* 运行态文件写失败时内存面板会少这一项，不影响附属进程本身。 */
+  }
+}
 
 function readJson(file: string): Record<string, unknown> | null {
   try {
@@ -105,6 +131,7 @@ export async function startModuleSidecars(
   root: string,
   log: (line: string, stream: "stdout" | "stderr") => void
 ): Promise<void> {
+  runtimeRoot = root;
   for (const { spec, dir } of loadSpecs(root)) {
     if (children.has(spec.id)) continue;
     if (!isEnabled(root, spec)) continue;
@@ -128,11 +155,13 @@ export async function startModuleSidecars(
     log(`[${spec.id}] 已随服务器启动附属进程 (PID ${child.pid ?? 0})`, "stdout");
     child.on("exit", (code) => {
       if (children.get(spec.id) === child) children.delete(spec.id);
+      persistSidecars();
       log(`[${spec.id}] 附属进程退出 (code ${code ?? "?"})`, code === 0 ? "stdout" : "stderr");
     });
     child.on("error", (err) => {
       log(`[${spec.id}] 附属进程启动失败: ${err.message}`, "stderr");
     });
+    persistSidecars();
   }
 }
 
@@ -149,4 +178,5 @@ export function stopModuleSidecars(): void {
       /* 进程已经结束时忽略。 */
     }
   }
+  persistSidecars();
 }

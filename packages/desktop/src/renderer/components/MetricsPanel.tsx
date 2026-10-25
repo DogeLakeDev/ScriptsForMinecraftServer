@@ -1,5 +1,5 @@
 /** 首页指标：服务端有界历史绘图，不补造采样；断采和重启分段展示。 */
-import type { MetricsResult, ResourceSample } from "@sfmc-bds/management";
+import type { MetricsResult, ProcessResources, ResourceSample } from "@sfmc-bds/management";
 import { useEffect, useState } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { PALETTES, useAppearance } from "../app/theme.js";
@@ -42,11 +42,16 @@ export function useRuntimeMetrics() {
           setReceivedAt(Date.now());
           setFailed(false);
           if (!Array.isArray(value.resourceHistory) && value.host && typeof value.resourcesUpdatedAt === "number") {
+            const partsMb: Record<string, number> = {};
+            for (const part of value.processes?.parts ?? []) {
+              if (typeof part.memoryMb === "number") partsMb[part.key] = part.memoryMb;
+            }
             const point: ResourceSample = {
               recordedAt: value.resourcesUpdatedAt,
               hostUsedMb: value.host.memory.usedMb,
               dbMb: value.processes?.db.memoryMb ?? null,
               bdsMb: value.processes?.bds?.memoryMb ?? null,
+              ...(Object.keys(partsMb).length ? { partsMb } : {}),
             };
             setLocalResources((current) => {
               const last = current.at(-1);
@@ -104,6 +109,29 @@ export const formatMemoryMb = (value: number | null | undefined) =>
 
 const memory = formatMemoryMb;
 
+/** 侧栏里的一行进程。BDS 和数据服务始终占位，其余只在正在运行时出现。 */
+function memoryRows(processes: MetricsResult["processes"] | undefined, reachable: boolean): Array<{ key: string; label: string; process: ProcessResources | null }> {
+  const rows: Array<{ key: string; label: string; process: ProcessResources | null }> = [
+    { key: "bds", label: "BDS", process: reachable ? processes?.bds ?? null : null },
+    { key: "db", label: "数据服务", process: reachable ? processes?.db ?? null : null },
+  ];
+  if (reachable) for (const part of processes?.parts ?? []) rows.push({ key: part.key, label: part.label, process: part });
+  return rows;
+}
+
+/** 已采到的进程工作集之和。缺数的进程不补 0。 */
+function measuredMemoryMb(rows: Array<{ process: ProcessResources | null }>): number | null {
+  let sum = 0;
+  let any = false;
+  for (const row of rows) {
+    const value = row.process?.memoryMb;
+    if (typeof value !== "number") continue;
+    sum += value;
+    any = true;
+  }
+  return any ? sum : null;
+}
+
 type MetricView = "tps" | "onlineCount" | "memory" | "entities";
 
 export function MetricsPanel({
@@ -119,6 +147,8 @@ export function MetricsPanel({
   const { data, supported, reachable, fresh, loading, resources, minutes, setMinutes } = metrics;
   const sample = fresh ? data?.current : null;
   const host = reachable ? data?.host : null;
+  const rows = memoryRows(data?.processes, reachable);
+  const sfmcMb = measuredMemoryMb(rows);
   const windowMinutes = Number(minutes);
   const end = Math.max(data?.resourcesUpdatedAt ?? 0, data?.history.at(-1)?.recordedAt ?? 0, resources.at(-1)?.recordedAt ?? 0) || Date.now();
   const from = end - windowMinutes * 60_000;
@@ -166,7 +196,7 @@ export function MetricsPanel({
               {field === "onlineCount" && sample ? (
                 `在线 ${sample.onlineCount}`
               ) : field === "memory" && host ? (
-                `总占用 ${memory(host.memory.usedMb)}`
+                sfmcMb === null ? `主机 ${memory(host.memory.usedMb)}` : `主机 ${memory(host.memory.usedMb)} · SFMC ${memory(sfmcMb)}`
               ) : sample?.tps !== null && sample?.tps !== undefined ? (
                 <span className={sample.tps < TPS_WARN_THRESHOLD ? "tone-text-warning" : ""}>TPS {sample.tps.toFixed(2)} / 20</span>
               ) : (
@@ -214,22 +244,27 @@ export function MetricsPanel({
           >
             <span style={{ width: `${host?.memory.usedPercent ?? 0}%` }} />
           </div>
-          {(["bds", "db"] as const).map((key) => {
-            const process = reachable ? data?.processes?.[key] : null;
-            return (
-              <div className="resource-process" key={key}>
-                <span>{key === "bds" ? "BDS" : "数据服务"}</span>
-                <b>{memory(process?.memoryMb)}</b>
-                <span className="muted">
-                  {process
-                    ? process.running
-                      ? `累计 CPU ${process.cpuSeconds === null ? "未知" : `${process.cpuSeconds.toFixed(1)} s`}`
-                      : "已停止"
-                    : "资源未知"}
-                </span>
-              </div>
-            );
-          })}
+          {host ? <div className="muted resource-note">整机已用，含系统和其他程序</div> : null}
+          {sfmcMb !== null ? (
+            <div className="resource-process">
+              <span>SFMC 合计</span>
+              <b>{memory(sfmcMb)}</b>
+              <span className="muted">下列进程的工作集相加</span>
+            </div>
+          ) : null}
+          {rows.map((row) => (
+            <div className="resource-process" key={row.key}>
+              <span>{row.label}</span>
+              <b>{memory(row.process?.memoryMb)}</b>
+              <span className="muted">
+                {row.process
+                  ? row.process.running
+                    ? `累计 CPU ${row.process.cpuSeconds === null ? "未知" : `${row.process.cpuSeconds.toFixed(1)} s`}`
+                    : "已停止"
+                  : "资源未知"}
+              </span>
+            </div>
+          ))}
           <div className="resource-entities">
             <span className="muted">实体</span>
             {[

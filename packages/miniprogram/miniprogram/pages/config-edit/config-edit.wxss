@@ -1,0 +1,110 @@
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.editor-head {
+  gap: 6px;
+}
+.editor-box {
+  flex: 1;
+  min-height: 0;
+  border-radius: 16px;
+  background: var(--c-block);
+  overflow: hidden;
+}
+.editor {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--c-text);
+}
+/* ---------- 表单视图：占满源码编辑框的位置，内部滚动 ---------- */
+.form-box {
+  flex: 1;
+  min-height: 0;
+}
+.form-group + .form-group {
+  margin-top: 10px;
+}
+.form-list {
+  padding: 4px 16px 8px;
+}
+/* 一行一个字段：标题与开关/选择器同行，输入框与说明在下方 */
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+}
+.form-row + .form-row {
+  border-top: 0.5px solid var(--c-line);
+}
+.form-row-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+}
+.form-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.form-label {
+  color: var(--c-text);
+  font-size: 14px;
+  line-height: 20px;
+}
+.form-key {
+  color: var(--c-text-3);
+  font-size: 11px;
+  line-height: 15px;
+}
+.form-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 160px;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  border-radius: 8px;
+  background: var(--c-fill);
+  color: var(--c-text);
+  font-size: 13px;
+}
+.form-picker.disabled {
+  opacity: 0.4;
+}
+.form-input {
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--c-fill);
+  color: var(--c-text);
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.form-foot {
+  padding: 10px 4px 4px;
+}
+.editor-loading {
+  padding: 16px;
+}
+.editor-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.foot-note {
+  gap: 6px;
+  color: var(--c-text-3);
+}
+.retry {
+  margin-top: 6px;
+}

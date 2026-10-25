@@ -1,0 +1,21 @@
+{
+  "name": "@sfmc-bds/miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SFMC 微信小程序管理端（原生小程序 + TypeScript + WeUI），通过 @sfmc-bds/mp-gateway 管理实例",
+  "author": "Shiroha7z",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-assets.mjs",
+    "typecheck": "tsc7 --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@phosphor-icons/core": "^2",
+    "@resvg/resvg-js": "^2.6.2",
+    "@sfmc-bds/management": "workspace:*",
+    "@sfmc-bds/tools": "workspace:*",
+    "@tabler/icons": "^3.49.0",
+    "miniprogram-api-typings": "^5.2.3"
+  }
+}

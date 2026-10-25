@@ -44,9 +44,9 @@ function registerMonacoThemes() {
       inherit: true,
       rules: [
         { token: "comment", foreground: toHex(palette.text3).slice(1, 7), fontStyle: "italic" },
-        { token: "string.key.json", foreground: light ? "5b5ec2" : "adadfb" },
+        { token: "string.key.json", foreground: light ? "6d3fd6" : "d0bcfe" },
         { token: "string.value.json", foreground: light ? "2e7d60" : "71dd8c" },
-        { token: "number", foreground: light ? "2f7aa6" : "7dbbff" },
+        { token: "number", foreground: light ? "1f66c7" : "a9c7ff" },
         { token: "keyword", foreground: light ? "9a4fd0" : "b899eb" },
       ],
       colors: {

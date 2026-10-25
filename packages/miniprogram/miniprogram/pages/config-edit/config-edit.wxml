@@ -1,0 +1,146 @@
+<view class="editor-page">
+  <conn-banner />
+  <view class="row wrap editor-head">
+    <text class="mono small muted truncate spacer">{{key}}</text>
+    <text wx:if="{{format}}" class="badge mono">{{format}}</text>
+    <text wx:if="{{hasSchema}}" class="badge tone-accent"><text class="i i-sm i-shield"></text>Schema</text>
+    <text wx:if="{{dirty}}" class="badge tone-warning"><text class="dot tone-warning"></text>未保存</text>
+    <text wx:if="{{saving}}" class="badge tone-info"><text class="i i-sm i-loader spin"></text>保存中</text>
+  </view>
+
+  <view wx:if="{{loadError}}" class="callout tone-danger">
+    <text class="i i-x-circle"></text>
+    <view class="callout-body">
+      <view class="callout-title">读取 {{key}} 失败</view>
+      <view class="callout-text">{{loadError}}</view>
+      <view class="link retry" bindtap="retry">重试</view>
+    </view>
+  </view>
+  <view wx:if="{{saveError}}" class="callout tone-danger">
+    <text class="i i-x-circle"></text>
+    <view class="callout-body">
+      <view class="callout-title">配置保存未完成</view>
+      <view class="callout-text">{{saveError}}</view>
+    </view>
+  </view>
+
+  <!-- 表单与源码编辑同一份文本，切换不丢修改 -->
+  <view class="segmented">
+    <view class="segmented-item {{view === 'form' ? 'active' : ''}}" data-value="form" bindtap="setView"><text class="i i-sm i-sliders"></text>表单</view>
+    <view class="segmented-item {{view === 'source' ? 'active' : ''}}" data-value="source" bindtap="setView"><text class="i i-sm i-code"></text>源码</view>
+  </view>
+
+  <scroll-view wx:if="{{view === 'form'}}" scroll-y class="form-box">
+    <view wx:if="{{loading && !text}}" class="editor-loading muted small"><text class="i i-loader spin"></text> 正在读取配置…</view>
+    <view wx:elif="{{form.state === 'syntax'}}" class="callout tone-danger">
+      <text class="i i-x-circle"></text>
+      <view class="callout-body">
+        <view class="callout-title">JSON 语法错误</view>
+        <view class="callout-text">切换到「源码」修复后可使用表单。</view>
+      </view>
+    </view>
+    <empty-state
+      wx:elif="{{form.state === 'empty'}}"
+      icon="file-code"
+      title="{{format === 'properties' ? '没有可识别的常用字段' : '此配置使用源码编辑'}}"
+      desc="{{format === 'properties' ? '请切换到「源码」视图编辑此文件' : '没有可直接表单化的顶层字段'}}"
+    />
+    <block wx:elif="{{form.state === 'fields'}}">
+      <view wx:for="{{form.groups}}" wx:for-item="group" wx:key="name" class="surface form-group">
+        <view wx:if="{{group.name}}" class="surface-head"><text class="surface-title">{{group.name}}</text></view>
+        <view class="form-list">
+          <view wx:for="{{group.fields}}" wx:for-item="field" wx:key="key" class="form-row">
+            <view class="form-row-head">
+              <view class="form-row-text">
+                <view class="form-label {{field.mono ? 'mono' : ''}}">{{field.label}}</view>
+                <view wx:if="{{field.showKey}}" class="form-key mono">{{field.key}}</view>
+              </view>
+              <view
+                wx:if="{{field.kind === 'boolean'}}"
+                class="switch {{field.checked ? 'on' : ''}} {{editable && !loading && !saving ? '' : 'disabled'}}"
+                data-key="{{field.key}}"
+                bindtap="onFieldToggle"
+              ></view>
+              <picker
+                wx:elif="{{field.kind === 'enum'}}"
+                mode="selector"
+                range="{{field.options}}"
+                value="{{field.optionIndex}}"
+                disabled="{{!editable || loading || saving}}"
+                data-key="{{field.key}}"
+                bindchange="onFieldPick"
+              >
+                <view class="form-picker {{editable && !loading && !saving ? '' : 'disabled'}}">
+                  <text class="truncate">{{field.optionLabel}}</text>
+                  <text class="i i-sm i-chevron-down"></text>
+                </view>
+              </picker>
+            </view>
+            <input
+              wx:if="{{field.kind === 'number'}}"
+              class="form-input"
+              type="{{field.inputType}}"
+              value="{{field.text}}"
+              disabled="{{!editable || loading || saving}}"
+              data-key="{{field.key}}"
+              bindblur="onFieldNumber"
+              bindconfirm="onFieldNumber"
+            />
+            <input
+              wx:elif="{{field.kind === 'string' || field.kind === 'secret'}}"
+              class="form-input"
+              password="{{field.kind === 'secret'}}"
+              value="{{field.text}}"
+              disabled="{{!editable || loading || saving}}"
+              data-key="{{field.key}}"
+              bindinput="onFieldText"
+            />
+            <view wx:if="{{field.description}}" class="field-hint">{{field.description}}</view>
+          </view>
+        </view>
+      </view>
+      <view wx:if="{{form.foot}}" class="small muted form-foot">{{form.foot}}</view>
+    </block>
+  </scroll-view>
+
+  <view wx:else class="editor-box">
+    <textarea
+      wx:if="{{!loading || text}}"
+      class="editor mono"
+      value="{{text}}"
+      maxlength="-1"
+      disabled="{{!editable || loading || saving}}"
+      show-confirm-bar="{{false}}"
+      disable-default-padding
+      adjust-position="{{false}}"
+      hold-keyboard
+      bindinput="onInput"
+    />
+    <view wx:else class="editor-loading muted small"><text class="i i-loader spin"></text> 正在读取配置…</view>
+  </view>
+
+  <view class="editor-foot">
+    <view class="row small foot-note">
+      <text class="i i-sm i-info"></text>
+      <text wx:if="{{syntax}}" class="text-danger truncate">存在语法错误：{{syntax}}</text>
+      <text wx:elif="{{affected}}" class="muted truncate">影响服务：{{affected}}，保存后可手动重启</text>
+      <text wx:else class="muted">保存后可手动重启服务使配置生效</text>
+    </view>
+    <view class="row">
+      <view class="btn btn-ghost {{dirty && !saving ? '' : 'disabled'}}" hover-class="hover" bindtap="discard">放弃</view>
+      <view class="btn spacer {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
+        <text class="i i-restart"></text>
+        <text>重启服务</text>
+      </view>
+      <view
+        class="btn btn-primary spacer {{editable && dirty && !syntax && !saving ? '' : 'disabled'}}"
+        hover-class="hover"
+        bindtap="save"
+      >
+        <text class="i i-check"></text>
+        <text>保存</text>
+      </view>
+    </view>
+  </view>
+</view>
+<confirm-sheet id="confirm" />

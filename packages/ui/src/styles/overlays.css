@@ -358,10 +358,87 @@
   margin-left: auto;
 }
 
+/* 抽屉顶栏单独成行：标题和操作在上，说明占满下一行，避免和正文挤在一起。 */
+.sheet .dialog-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 14px 16px 12px 20px;
+  background: var(--c-bg);
+  border-bottom: var(--hair) solid var(--c-line);
+}
+
+.sheet .dialog-head:not(:has(.dialog-desc)) {
+  row-gap: 0;
+}
+
+.sheet .dialog-head-text {
+  display: contents;
+  padding-top: 0;
+}
+
+.sheet .dialog-title {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.sheet .dialog-desc {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+}
+
+.sheet .sheet-actions {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+}
+
+.sheet .dialog-close {
+  grid-column: 3;
+  grid-row: 1;
+  margin: 0;
+}
+
+.sheet .dialog-body {
+  padding: 16px 20px 20px;
+}
+
+/* 筛选固定、列表自己滚动。用于告警抽屉和需要撑满剩余高度的脚本抽屉。 */
+.sheet.sheet-fill .dialog-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 .sheet-stack {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* 撑满抽屉正文。脚本编辑器在有剩余高度时伸长，窗口较矮时整块仍可滚动。 */
+.sheet-fill-body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 20px 20px;
+  overflow: auto;
+}
+
+/* 开机启动脚本占满抽屉剩余高度，滚动发生在编辑器内部。 */
+.sheet-code {
+  flex: 1;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-code > div:last-child {
+  flex: 1;
+  min-height: 0;
 }
 
 .sheet-loading {

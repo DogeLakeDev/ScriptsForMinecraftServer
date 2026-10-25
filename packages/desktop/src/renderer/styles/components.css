@@ -324,7 +324,7 @@
 }
 
 [data-theme="dark"] .stat-graphite {
-  background: linear-gradient(145deg, #2d333c, #252a32);
+  background: linear-gradient(145deg, #333333, #2a2a2a);
 }
 
 [data-theme="dark"] :is(.surface, .stat) {
@@ -918,64 +918,153 @@
 .alert-archive {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  flex: 1;
+  min-height: 0;
 }
 
 .alert-archive-tools {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: -16px -24px 0;
-  padding: 16px 24px 12px;
+  gap: 8px;
+  padding: 12px 20px;
   background: var(--c-bg);
+  border-bottom: var(--hair) solid var(--c-line);
+}
+
+/* 级别、来源各占一行：左侧是行名，右侧芯片可以换行。 */
+.alert-filter-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.alert-filter-label {
+  padding-top: 4px;
+  color: var(--c-text-3);
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .alert-archive-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
   margin: 0;
   color: var(--c-text-3);
   font-size: 12px;
   line-height: 18px;
 }
 
+.alert-archive-note .link-btn {
+  margin-left: 8px;
+}
+
+/* 左右 6px + 行内 14px，图标列与上方搜索框、筛选行名都落在 20px。 */
+.alert-archive-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 6px 16px;
+}
+
 .alert-archive-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .alert-archive-row {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 4px;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--r-12);
   content-visibility: auto;
-  contain-intrinsic-size: auto 72px;
+  contain-intrinsic-size: auto 56px;
 }
 
-.alert-archive-row.is-unread .alert-archive-main {
-  box-shadow: inset 2px 0 0 var(--c-accent);
+.alert-archive-row:hover,
+.alert-archive-row:focus-within {
+  background: var(--c-fill);
 }
 
+/* 已读条目标题降一级颜色，未读条目保持正文色并加圆点，避免整列都加粗。 */
+.alert-archive-row .feed-title {
+  color: var(--c-text-2);
+}
+
+.alert-archive-row.is-unread .feed-title {
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+/*
+ * 未读圆点画在行内左侧留白里（圆角行上用内阴影会弯成括号形）。
+ * 行开了 content-visibility，自带绘制裁剪，圆点不能画到行外。
+ */
+.alert-archive-row.is-unread::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  /* 与图标中心对齐：.feed-item 上内边距 8px + 24px 图标的一半 − 圆点半径。 */
+  top: calc(8px + 12px - 2.5px);
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--c-accent);
+  pointer-events: none;
+}
+
+.alert-archive-row .feed-item:hover {
+  background: transparent;
+}
+
+/* 左侧多留 6px 给未读圆点，已读行同样留出，保证图标列对齐。 */
 .alert-archive-main {
   min-width: 0;
+  flex: 1;
+  padding-left: 14px;
 }
 
 .alert-archive-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 8px;
+  gap: 2px 0;
+  font-variant-numeric: tabular-nums;
 }
 
+/* 来源、时间、次数之间用间隔点分开。 */
+.alert-archive-meta > span + span::before {
+  content: "·";
+  margin: 0 6px;
+  color: var(--c-text-3);
+}
+
+/* 行内操作只在悬停或键盘聚焦到该行时出现，占位保留，避免标题宽度跳动。 */
 .alert-archive-actions {
   display: flex;
   flex: none;
   gap: 2px;
-  padding-top: 6px;
+  padding-right: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.alert-archive-row:hover .alert-archive-actions,
+.alert-archive-row:focus-within .alert-archive-actions {
+  opacity: 1;
+}
+
+/* 触屏没有悬停，操作常驻。 */
+@media (hover: none) {
+  .alert-archive-actions {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 1100px) {

@@ -2,12 +2,13 @@
  * ProfileDialog.tsx — 实例设置对话框（添加实例 / 连接设置）
  *
  * 使用场景：侧栏"添加实例"、欢迎页入口卡片（预选连接方式）、连接门与命令面板的"连接设置"。
- * 字段与原实现的 antd 表单一致：名称、连接方式、SSH 主机/端口/用户/远程系统/密码/私钥/口令/记住凭据、部署绝对目录；
- * 提交的字段集合也与原表单 validateFields 的结果一致（本机只提交 name/kind/root，SSH 额外提交连接与凭据字段）。
+ * 字段：名称、连接方式（本机 / SSH / 管理网关）、SSH 主机与凭据、网关地址与访问令牌、部署绝对目录。
+ * 网关不填目录，目录由服务器上的网关决定。提交字段与原先一样只包含当前连接方式用到的项。
  * 编辑已有实例时可从客户端移除（服务器目录与运行中的服务保留）。
  */
 import { useEffect, useState } from "react";
 import type { Credentials, InstanceProfile } from "../../shared/api.js";
+import { normalizeEndpoint } from "../../shared/gateway-url.js";
 import { useDesktop } from "../app/desktop.js";
 import { Button, Checkbox, Field, NumberInput, PasswordInput, Segmented, Select, TextInput } from "../components/controls.js";
 import { useConfirm } from "../components/feedback.js";
@@ -26,10 +27,19 @@ function isAbsolute(path: string, windows: boolean): boolean {
   return windows ? /^[A-Za-z]:[\\/]/.test(path) || /^\\\\[^\\]+\\/.test(path) : path.startsWith("/");
 }
 
-/** 表单校验：名称与目录必填；SSH 需主机与用户；目录需为绝对路径 */
-function validate(draft: Draft): Partial<Record<keyof Draft, string>> {
+/** 表单校验：名称必填；SSH 需主机、用户和绝对目录；网关需地址，新建时还需令牌 */
+function validate(draft: Draft, editing: InstanceProfile | null): Partial<Record<keyof Draft, string>> {
   const errors: Partial<Record<keyof Draft, string>> = {};
   if (!draft.name.trim()) errors.name = "请输入实例名称";
+  if (draft.kind === "gateway") {
+    if (!draft.endpoint?.trim()) errors.endpoint = "请输入网关地址";
+    else {
+      try { normalizeEndpoint(draft.endpoint); }
+      catch (error) { errors.endpoint = error instanceof Error ? error.message : "网关地址无效"; }
+    }
+    if (!editing?.hasCredential && !draft.token?.trim()) errors.token = "请输入访问令牌";
+    return errors;
+  }
   if (draft.kind === "ssh") {
     if (!draft.host?.trim()) errors.host = "请输入主机地址";
     if (!draft.username?.trim()) errors.username = "请输入 SSH 用户";
@@ -45,6 +55,9 @@ function validate(draft: Draft): Partial<Record<keyof Draft, string>> {
 function payload(draft: Draft): InstanceProfile & Credentials {
   const base = { id: "", name: draft.name.trim(), kind: draft.kind, root: draft.root.trim() };
   if (draft.kind === "local") return base;
+  if (draft.kind === "gateway") {
+    return { ...base, root: "", endpoint: normalizeEndpoint(draft.endpoint ?? ""), token: draft.token?.trim() || undefined, remember: draft.remember };
+  }
   return {
     ...base,
     host: draft.host?.trim(),
@@ -71,16 +84,17 @@ export function ProfileDialog() {
     setSubmitted(false);
     setSaving(false);
     setError("");
-    setDraft(editing ? { ...DEFAULTS, ...editing, password: "", passphrase: "" } : { ...DEFAULTS, kind: preset ?? "local" });
+    setDraft(editing ? { ...DEFAULTS, ...editing, password: "", passphrase: "", token: "" } : { ...DEFAULTS, kind: preset ?? "local" });
   }, [open, editing, preset]);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((previous) => ({ ...previous, [key]: value }));
-  const errors = submitted ? validate(draft) : {};
+  const errors = submitted ? validate(draft, editing) : {};
   const ssh = draft.kind === "ssh";
+  const gateway = draft.kind === "gateway";
   const windowsRoot = !ssh || draft.os === "windows";
 
   const save = async () => {
     setSubmitted(true);
-    if (Object.keys(validate(draft)).length) return;
+    if (Object.keys(validate(draft, editing)).length) return;
     setSaving(true);
     setError("");
     try {
@@ -137,8 +151,9 @@ export function ProfileDialog() {
             onChange={(value) => set("kind", value)}
             label="连接方式"
             options={[
-              { value: "local", label: "Windows 本机", icon: "monitor" },
-              { value: "ssh", label: "SSH 远程", icon: "server" },
+              { value: "local", label: "本机", icon: "monitor" },
+              { value: "ssh", label: "SSH", icon: "server" },
+              { value: "gateway", label: "网关", icon: "globe" },
             ]}
           />
         </Field>
@@ -188,6 +203,19 @@ export function ProfileDialog() {
             <Checkbox checked={Boolean(draft.remember)} onChange={(checked) => set("remember", checked)}>使用系统加密记住密码与口令</Checkbox>
           </fieldset>
         )}
+        {gateway && (
+          <fieldset className="form-section">
+            <legend>管理网关</legend>
+            <Field label="网关地址" required error={errors.endpoint} description="与小程序中填写的地址相同，例如 https://mc.example.com/sfmc">
+              <TextInput mono value={draft.endpoint ?? ""} onChange={(value) => set("endpoint", value)} placeholder="https://mc.example.com/sfmc" invalid={Boolean(errors.endpoint)} />
+            </Field>
+            <Field label="访问令牌" required={!editing?.hasCredential} error={errors.token} description={editing?.hasCredential ? "已保存令牌；留空表示保持不变" : "网关启动时打印的访问令牌"}>
+              <PasswordInput value={draft.token ?? ""} onChange={(value) => set("token", value)} invalid={Boolean(errors.token)} />
+            </Field>
+            <Checkbox checked={Boolean(draft.remember)} onChange={(checked) => set("remember", checked)}>使用系统加密记住访问令牌</Checkbox>
+          </fieldset>
+        )}
+        {!gateway && (
         <Field label="部署绝对目录" required error={errors.root} description={ssh ? "远程服务器上的目录" : "空目录会在连接后初始化；已有服务器连接后直接管理"}>
           <TextInput
             mono
@@ -198,6 +226,7 @@ export function ProfileDialog() {
             suffix={!ssh ? <button type="button" className="input-action" onClick={() => choose("directory", "root")}>选择本机目录</button> : undefined}
           />
         </Field>
+        )}
         {error && <Callout tone="danger" title="保存失败">{error}</Callout>}
       </div>
     </Modal>

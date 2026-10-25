@@ -1,95 +1,218 @@
 {
-  "fetchedAt": 1790867366873,
+  "fetchedAt": 1792901548910,
   "index": {
     "activity-log": {
       "npm": "@sfmc-bds/module-activity-log",
-      "version": "0.2.2",
-      "sdk": ">=0.2.0"
+      "version": "0.3.0",
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/DogeLakeDev/sfmc-module-activity-log",
+      "name": "行为日志",
+      "category": "system",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "afk": {
       "npm": "@sfmc-bds/module-afk",
-      "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "version": "0.3.0",
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/DogeLakeDev/sfmc-module-afk",
+      "name": "afk",
+      "category": "utility",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "area": {
       "npm": "@sfmc-bds/module-area",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-area",
+      "name": "area",
+      "description": "区域特性调度引擎",
+      "category": "system",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "chat": {
       "npm": "@sfmc-bds/module-chat",
-      "version": "0.2.2",
-      "sdk": ">=0.2.2"
+      "version": "0.2.1",
+      "sdk": ">=0.2.0-beta.17",
+      "repo": "https://github.com/Tanya7z/sfmc-module-chat",
+      "name": "chat",
+      "category": "social",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "chat-sounds": {
       "npm": "@sfmc-bds/module-chat-sounds",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-chat-sounds",
+      "name": "chat-sounds",
+      "category": "social",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "chat"
+      ]
     },
     "clean": {
       "npm": "@sfmc-bds/module-clean",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-clean",
+      "name": "掉落物清理",
+      "description": "区域与全服掉落物预警、倒计时广播与物理回收箱清理",
+      "category": "utility",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "area"
+      ]
     },
     "coop": {
       "npm": "@sfmc-bds/module-coop",
       "version": "0.2.2",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0-beta.17",
+      "repo": "https://github.com/Tanya7z/sfmc-module-coop",
+      "name": "合作社",
+      "category": "social",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "economy",
+        "activity-log"
+      ]
     },
     "data-backup": {
       "npm": "@sfmc-bds/module-data-backup",
       "version": "0.2.2",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-data-backup",
+      "name": "数据备份",
+      "category": "system",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "economy": {
       "npm": "@sfmc-bds/module-economy",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-economy",
+      "name": "经济系统",
+      "category": "economy",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "fly-area": {
       "npm": "@sfmc-bds/module-fly-area",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-fly-area",
+      "name": "区域飞行",
+      "category": "gameplay",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "area"
+      ]
     },
     "gamemode-area": {
       "npm": "@sfmc-bds/module-gamemode-area",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-gamemode-area",
+      "name": "区域游戏模式",
+      "description": "区域游戏模式切换与背包隔离置换",
+      "category": "gameplay",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "area",
+        "inventory-switcher"
+      ]
     },
     "inventory-switcher": {
       "npm": "@sfmc-bds/module-inventory-switcher",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-inventory-switcher",
+      "name": "背包切换",
+      "description": "通用背包多槽位快照持久化与原子置换服务",
+      "category": "system",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "land": {
       "npm": "@sfmc-bds/module-land",
-      "version": "0.2.2",
-      "sdk": ">=0.2.0"
-    },
-    "monitor": {
-      "npm": "@sfmc-bds/module-monitor",
-      "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "version": "1.0.0",
+      "sdk": ">=0.5.0",
+      "repo": "https://github.com/DogeLakeDev/sfmc-module-land",
+      "name": "领地",
+      "category": "gameplay",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "economy",
+        "activity-log"
+      ]
     },
     "online-time": {
       "npm": "@sfmc-bds/module-online-time",
       "version": "0.2.2",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0-beta.17",
+      "repo": "https://github.com/Tanya7z/sfmc-module-online-time",
+      "name": "在线时长统计",
+      "description": "进服打点与心跳增量结转在线统计",
+      "category": "utility",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     },
     "peace-area": {
       "npm": "@sfmc-bds/module-peace-area",
-      "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "version": "1.0.0",
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/DogeLakeDev/sfmc-module-peace-area",
+      "name": "和平区域",
+      "description": "区域怪物生成拦截",
+      "category": "gameplay",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "area"
+      ]
     },
     "qa": {
       "npm": "@sfmc-bds/module-qa",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0-beta.17",
+      "repo": "https://github.com/Tanya7z/sfmc-module-qa",
+      "name": "QA",
+      "category": "gameplay",
+      "license": "ISC",
+      "official": true,
+      "requires": [
+        "economy",
+        "chat"
+      ]
     },
     "spawn-protect": {
       "npm": "@sfmc-bds/module-spawn-protect",
       "version": "0.2.1",
-      "sdk": ">=0.2.0"
+      "sdk": ">=0.2.0",
+      "repo": "https://github.com/Tanya7z/sfmc-module-spawn-protect",
+      "name": "出生保护",
+      "category": "utility",
+      "license": "ISC",
+      "official": true,
+      "requires": []
     }
   }
 }

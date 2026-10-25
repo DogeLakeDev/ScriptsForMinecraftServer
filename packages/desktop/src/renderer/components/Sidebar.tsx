@@ -13,11 +13,19 @@ import { Icon, LogoMark } from "./icons.js";
 import { Tooltip } from "./tooltip.js";
 import { StatusDot } from "./ui.js";
 
-/** 实例的副标题：本机显示目录，远程显示主机与系统（侧栏悬浮提示、命令面板、欢迎页共用） */
+/** 实例的副标题：本机显示目录，网关显示地址，SSH 显示主机与系统 */
 export function profileSubtitle(profile: InstanceProfile): string {
+  if (profile.kind === "gateway") return profile.endpoint || "管理网关";
   return profile.kind === "local"
     ? `本机 ${profile.root}`
     : `${profile.username ? `${profile.username}@` : ""}${profile.host}${profile.port && profile.port !== 22 ? `:${profile.port}` : ""} ${profile.os === "windows" ? "Windows" : "Linux"}`;
+}
+
+/** 实例图标：本机显示器、SSH 服务器、网关地球 */
+export function profileIcon(kind: InstanceProfile["kind"]): "monitor" | "server" | "globe" {
+  if (kind === "ssh") return "server";
+  if (kind === "gateway") return "globe";
+  return "monitor";
 }
 
 /** 实例列表：图标、名称与导航项同一行高，状态点和设置都在圆角行内。当前实例高亮，悬停显示设置按钮 */
@@ -56,7 +64,7 @@ function InstanceList({ collapsed }: { collapsed: boolean }) {
                     onClick={() => setCurrent(profile.id)}
                   >
                     <Icon
-                      name={profile.kind === "ssh" ? "server" : "monitor"}
+                      name={profileIcon(profile.kind)}
                       size={20}
                       weight={active ? "fill" : "duotone"}
                       className="sb-instance-kind"

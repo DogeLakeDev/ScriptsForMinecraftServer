@@ -94,7 +94,7 @@ export function ModuleDetailSheet({
       onClose={onClose}
       width={640}
       title={title}
-      description={row && title !== row.id ? row.id : "模块详细信息"}
+      description={row && title !== row.id ? row.id : undefined}
       actions={
         <>
           {canBack && <Button size="sm" icon="arrowLeft" onClick={onBack}>返回</Button>}

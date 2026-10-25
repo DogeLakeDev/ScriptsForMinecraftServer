@@ -1,0 +1,31 @@
+.update-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.update-card > .btn {
+  align-self: flex-start;
+}
+.version {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.update-item {
+  gap: 12px;
+}
+.notes {
+  display: block;
+  max-height: 160px;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--c-fill);
+  color: var(--c-text-2);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+}

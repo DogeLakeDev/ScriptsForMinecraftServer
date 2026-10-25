@@ -4,6 +4,7 @@ import { collectSystemStatus, type SystemStatusSnapshot } from "../domain/system
 import { PROJECT_ROOT } from "../project-root.js";
 import { METRICS_RAW_WINDOW_MS, MetricsHistory, ResourceHistory, clampMetricsSpan, parseMetrics, type MetricsSample } from "../domain/metrics.js";
 import { collectProcessResources } from "../domain/process-resources.js";
+import { collectTrackedProcesses } from "../domain/tracked-processes.js";
 import type { QueryFn } from "../lib/sqlite.js";
 import fs from "node:fs";
 import pathModule from "node:path";
@@ -41,14 +42,21 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
       db: await collectProcessResources(system.db.pid, system.db.running),
       bds: owned ? await collectProcessResources(system.bds.pid, system.bds.running) : null,
     };
+    const skip = new Set<number>();
+    if (processes.db.pid > 0) skip.add(processes.db.pid);
+    if (processes.bds && processes.bds.pid > 0) skip.add(processes.bds.pid);
+    const parts = await collectTrackedProcesses(root, skip);
+    const partsMb: Record<string, number> = {};
+    for (const part of parts) partsMb[part.key] = part.memoryMb;
     resources?.append({
       recordedAt: Date.now(),
       hostUsedMb: system.host.memory.usedMb,
       dbMb: processes.db.memoryMb,
       bdsMb: processes.bds?.memoryMb ?? null,
+      ...(Object.keys(partsMb).length ? { partsMb } : {}),
     });
     lastCapture = Date.now();
-    return processes;
+    return { ...processes, ...(parts.length ? { parts } : {}) };
   };
   let systemCache: { data: SystemStatusSnapshot; at: number } | undefined;
   let collecting: Promise<SystemStatusSnapshot> | undefined;

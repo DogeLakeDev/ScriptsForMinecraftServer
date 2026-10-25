@@ -16,15 +16,17 @@ import { Modal } from "../components/overlays.js";
 import { Callout } from "../components/ui.js";
 import { errorText } from "../lib/format.js";
 
-/** SSH 登录：凭据仅用于本次连接（是否记住由实例设置中的选项决定） */
+/** SSH 登录或网关令牌：凭据仅用于本次连接（是否记住由实例设置中的选项决定） */
 function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
   const { connect, setFlow } = useDesktop();
   const [password, setPassword] = useState("");
   const [passphrase, setPassphrase] = useState("");
+  const [token, setToken] = useState("");
   const { profile, reconnect } = flow;
+  const gateway = profile.kind === "gateway";
   const submit = () => {
     setFlow(null);
-    void connect(profile, reconnect, { password: password || undefined, passphrase: passphrase || undefined });
+    void connect(profile, reconnect, gateway ? { token: token.trim() || undefined } : { password: password || undefined, passphrase: passphrase || undefined });
   };
   return (
     <Modal
@@ -32,8 +34,8 @@ function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
       onClose={() => setFlow(null)}
       size="sm"
       icon="key"
-      title={`登录 ${profile.name}`}
-      description={<span className="mono">{profile.username ? `${profile.username}@` : ""}{profile.host}{profile.port && profile.port !== 22 ? `:${profile.port}` : ""}</span>}
+      title={gateway ? `连接 ${profile.name}` : `登录 ${profile.name}`}
+      description={<span className="mono">{gateway ? profile.endpoint : `${profile.username ? `${profile.username}@` : ""}${profile.host}${profile.port && profile.port !== 22 ? `:${profile.port}` : ""}`}</span>}
       onSubmit={submit}
       footer={
         <>
@@ -43,13 +45,21 @@ function LoginDialog({ flow }: { flow: Extract<Flow, { kind: "login" }> }) {
       }
     >
       <div className="form-stack">
-        <Field label="密码" description={profile.privateKeyPath ? "使用私钥登录时可留空" : undefined}>
-          <PasswordInput value={password} onChange={setPassword} autoFocus />
-        </Field>
-        {profile.privateKeyPath && (
-          <Field label="私钥口令" description={<span className="mono truncate">{profile.privateKeyPath}</span>}>
-            <PasswordInput value={passphrase} onChange={setPassphrase} />
+        {gateway ? (
+          <Field label="访问令牌">
+            <PasswordInput value={token} onChange={setToken} autoFocus />
           </Field>
+        ) : (
+          <>
+            <Field label="密码" description={profile.privateKeyPath ? "使用私钥登录时可留空" : undefined}>
+              <PasswordInput value={password} onChange={setPassword} autoFocus />
+            </Field>
+            {profile.privateKeyPath && (
+              <Field label="私钥口令" description={<span className="mono truncate">{profile.privateKeyPath}</span>}>
+                <PasswordInput value={passphrase} onChange={setPassphrase} />
+              </Field>
+            )}
+          </>
         )}
       </div>
     </Modal>
