@@ -1384,6 +1384,203 @@
   font-size: 12px;
 }
 
+/* ---------- 计分板（统计卡片、条形与分页沿用行为日志的 activity-* 样式） ---------- */
+
+.scoreboard-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.scoreboard-objectives {
+  position: sticky;
+  top: 0;
+}
+
+.scoreboard-objective-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100vh - 220px);
+  padding: 0 8px 8px;
+  overflow: auto;
+}
+
+.scoreboard-objective {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--r-12);
+  text-align: left;
+}
+
+.scoreboard-objective:hover {
+  background: var(--c-fill);
+}
+
+.scoreboard-objective.active {
+  background: var(--c-fill-2);
+}
+
+.scoreboard-objective-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.scoreboard-objective-main .mono {
+  font-size: 12px;
+}
+
+.scoreboard-objective-meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.scoreboard-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.scoreboard-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.scoreboard-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scoreboard-rank {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 8em) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 12.5px;
+}
+
+.scoreboard-rank .activity-bar-track > span.negative {
+  background: var(--c-danger);
+}
+
+.scoreboard-histogram {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: 140px;
+  padding: 4px 6px 0;
+}
+
+.scoreboard-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.scoreboard-column-count {
+  min-height: 16px;
+  color: var(--c-text-3);
+  font-size: 11px;
+  text-align: center;
+}
+
+.scoreboard-column-bar {
+  display: block;
+  border-radius: var(--r-4, 4px) var(--r-4, 4px) 0 0;
+  background: var(--c-progress-text);
+  opacity: 0.6;
+}
+
+.scoreboard-column:hover .scoreboard-column-bar {
+  opacity: 0.9;
+}
+
+.scoreboard-histogram-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 6px 0;
+  border-top: 1px solid var(--c-line);
+  font-size: 11px;
+}
+
+.scoreboard-participants {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px 8px;
+}
+
+.scoreboard-participant {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto minmax(72px, auto) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--r-12);
+}
+
+.scoreboard-participant:hover {
+  background: var(--c-fill);
+}
+
+.scoreboard-participant-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.scoreboard-score {
+  text-align: right;
+}
+
+.scoreboard-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.scoreboard-command {
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+@media (max-width: 960px) {
+  .scoreboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scoreboard-objectives {
+    position: static;
+  }
+
+  .scoreboard-objective-list {
+    max-height: 240px;
+  }
+
+  .scoreboard-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* ---------- 对话框内容 ---------- */
 
 .plan-versions {

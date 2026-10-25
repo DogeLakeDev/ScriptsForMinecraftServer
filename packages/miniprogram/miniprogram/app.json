@@ -22,6 +22,7 @@
         "pages/config-edit/config-edit",
         "pages/players/players",
         "pages/activity/activity",
+        "pages/scoreboard/scoreboard",
         "pages/updates/updates",
         "pages/devices/devices"
       ]

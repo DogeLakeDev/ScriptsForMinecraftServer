@@ -1,0 +1,155 @@
+.scoreboard-objectives {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 卡片内的搜索框用填充底色，与卡片背景区分 */
+.scoreboard-search {
+  background: var(--c-fill);
+}
+.scoreboard-chip-scroll {
+  width: 100%;
+}
+.scoreboard-slots {
+  gap: 6px;
+  padding-top: 0;
+}
+.scoreboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 8px;
+}
+.scoreboard-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.scoreboard-stat-value {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.scoreboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scoreboard-rank {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scoreboard-rank-no {
+  flex: none;
+  width: 18px;
+  font-size: 12px;
+  text-align: right;
+}
+.scoreboard-rank-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.scoreboard-rank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.scoreboard-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--c-fill-2);
+  overflow: hidden;
+}
+.scoreboard-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--c-primary);
+}
+.scoreboard-fill.negative {
+  background: var(--c-danger);
+}
+.scoreboard-histogram {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: 120px;
+}
+.scoreboard-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.scoreboard-column-count {
+  min-height: 14px;
+  color: var(--c-text-3);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+.scoreboard-column-bar {
+  border-radius: 4px 4px 0 0;
+  background: var(--c-progress);
+  opacity: 0.7;
+}
+.scoreboard-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px solid var(--c-line);
+  font-size: 11px;
+}
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.scoreboard-score {
+  flex: none;
+  min-width: 40px;
+  font-weight: 600;
+  text-align: right;
+}
+.scoreboard-footer {
+  padding: 8px 12px 4px;
+  text-align: center;
+}
+.scoreboard-number {
+  gap: 8px;
+}
+.scoreboard-command {
+  font-size: 12px;
+  word-break: break-all;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
+  text-align: left;
+}
+.field-input-fill {
+  background: var(--c-fill);
+  display: flex;
+  align-items: center;
+}
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}

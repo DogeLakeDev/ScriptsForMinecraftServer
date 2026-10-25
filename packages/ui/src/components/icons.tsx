@@ -147,6 +147,8 @@ import IconToggleLeft from "@tabler/icons-react/dist/esm/icons/IconToggleLeft.mj
 import IconToggleLeftFilled from "@tabler/icons-react/dist/esm/icons/IconToggleLeftFilled.mjs";
 import IconTrash from "@tabler/icons-react/dist/esm/icons/IconTrash.mjs";
 import IconTrashFilled from "@tabler/icons-react/dist/esm/icons/IconTrashFilled.mjs";
+import IconTrophy from "@tabler/icons-react/dist/esm/icons/IconTrophy.mjs";
+import IconTrophyFilled from "@tabler/icons-react/dist/esm/icons/IconTrophyFilled.mjs";
 import IconTypography from "@tabler/icons-react/dist/esm/icons/IconTypography.mjs";
 import IconUpload from "@tabler/icons-react/dist/esm/icons/IconUpload.mjs";
 import IconUser from "@tabler/icons-react/dist/esm/icons/IconUser.mjs";
@@ -266,6 +268,7 @@ const ICONS = {
   download: [IconDownload, IconDownloadFilled],
   upload: [IconUpload],
   trash: [IconTrash, IconTrashFilled],
+  trophy: [IconTrophy, IconTrophyFilled],
   pencil: [IconPencil, IconPencilFilled],
   more: [IconDots, IconDotsFilled],
   external: [IconExternalLink, IconExternalLinkFilled],

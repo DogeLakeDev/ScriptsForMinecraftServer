@@ -47,6 +47,11 @@
       "import": "./dist/domain/activity-log.js",
       "default": "./dist/domain/activity-log.js"
     },
+    "./scoreboard": {
+      "types": "./dist/domain/scoreboard.d.ts",
+      "import": "./dist/domain/scoreboard.js",
+      "default": "./dist/domain/scoreboard.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

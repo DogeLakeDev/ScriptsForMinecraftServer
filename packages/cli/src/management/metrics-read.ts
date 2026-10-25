@@ -8,8 +8,11 @@ import { clampMetricsSpan, readPersistedMetrics } from "@sfmc-bds/db-server/metr
 import type { MetricsResult } from "@sfmc-bds/management";
 import { getRoot } from "../runtime.js";
 
-/** 与数据服务相同的配置读取：文件缺失时用默认端口和默认数据库相对路径。 */
-function dbConfig(root: string): { db_port?: number; http_auth?: string; dbDir?: string } {
+/**
+ * 与数据服务相同的配置读取：文件缺失时用默认端口和默认数据库相对路径。
+ * 使用场景：本文件读取运行指标；scoreboard.ts 读取计分板快照。
+ */
+export function dbConfig(root: string): { db_port?: number; http_auth?: string; dbDir?: string } {
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(root, "configs", "db_config.json"), "utf8")) as { db_port?: unknown; http_auth?: unknown; dbDir?: unknown };
     return {
@@ -33,7 +36,8 @@ function spanOf(params: unknown): number {
   return clampMetricsSpan((params as { spanMs?: unknown }).spanMs);
 }
 
-function offline(error: unknown): boolean {
+/** 请求数据服务失败是否因为服务未运行（连接被拒、超时等），而不是返回了错误。使用场景同 dbConfig。 */
+export function offline(error: unknown): boolean {
   const detail = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : String(error);
   return /fetch failed|ECONNREFUSED|ENOTFOUND|AbortError|TimeoutError|timed out/i.test(detail);
 }

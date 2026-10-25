@@ -28,6 +28,11 @@ export type {
   PackRow,
   PlayerRow,
   QqBinding,
+  ScoreboardObjectiveRow,
+  ScoreboardOperation,
+  ScoreboardParticipant,
+  ScoreboardReadResult,
+  ScoreboardScoreMode,
   ServiceStateChanged,
   ServiceStatusRow,
 } from "@sfmc-bds/management";

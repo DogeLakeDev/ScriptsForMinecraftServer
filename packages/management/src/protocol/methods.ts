@@ -4,6 +4,7 @@ import type { LogsDeleteResult, LogsTailResult } from "./logs.js";
 import type { ServicesListResult } from "./services.js";
 import type { MetricsResult } from "./metrics.js";
 import type { ActivityQueryResult, ActivityStatsResult } from "./activity.js";
+import type { ScoreboardApplyResult, ScoreboardReadResult } from "./scoreboard.js";
 
 /**
  * 配置表单的单个字段描述。
@@ -142,6 +143,10 @@ export interface ManagementMethodMap {
   "activity.query": ActivityQueryResult;
   /** 按筛选条件统计行为日志（事件类型、级别、活跃玩家）。参数见 ActivityFilterParams。 */
   "activity.stats": ActivityStatsResult;
+  /** 读取游戏内同步的计分板快照。参数见 ScoreboardReadParams。 */
+  "scoreboard.read": ScoreboardReadResult;
+  /** 把计分板编辑操作转成控制台命令发送给 BDS。参数见 ScoreboardApplyParams。 */
+  "scoreboard.apply": ScoreboardApplyResult;
   "updates.check": unknown;
   "updates.run": OperationAccepted;
   "attachment.plan": AttachmentPlan;

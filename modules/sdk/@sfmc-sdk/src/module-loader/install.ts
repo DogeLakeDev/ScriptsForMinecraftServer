@@ -30,6 +30,7 @@ import { applyDebugFromVariables, initSentryIfConfigured } from "../sapi/diagnos
 import { Command } from "../sapi/runtime/command.js";
 import { debug } from "../sapi/runtime/debug-log.js";
 import { getRuntimeMetrics, getRuntimeTpsStatus, startRuntimeMonitoring, stopRuntimeMonitoring } from "../sapi/runtime/monitoring.js";
+import { startScoreboardSync, stopScoreboardSync } from "../sapi/runtime/scoreboard-sync.js";
 import { Msg } from "../sapi/runtime/msg.js";
 import { Permission } from "../sapi/runtime/permission.js";
 import {
@@ -138,11 +139,14 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   let worldLoadFired = false;
   let stopMonitoring: (() => void) | undefined;
   let stopQqLink: (() => void) | undefined;
+  /** 计分板同步的停止函数（供桌面端 / 小程序「计分板」页查看） */
+  let stopScoreboard: (() => void) | undefined;
 
-  /** 世界就绪后启动平台监控与 QQ 绑定（与模块 bootAfterWorldLoad 对称）。 */
+  /** 世界就绪后启动平台监控、QQ 绑定与计分板同步（与模块 bootAfterWorldLoad 对称）。 */
   const startPlatformWorldRuntime = async () => {
     stopMonitoring ??= startRuntimeMonitoring();
     stopQqLink ??= startPlatformQqLink();
+    stopScoreboard ??= startScoreboardSync();
     await ModuleRegistry.bootAfterWorldLoad();
   };
 
@@ -209,6 +213,7 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
       try {
         stopQqLink?.();
         stopMonitoring?.();
+        stopScoreboard?.();
         ModuleRegistry.teardown();
       } catch {}
     });
@@ -225,6 +230,7 @@ function _bootstrapBackend(): HostBackend {
     dispose: () => {
       stopPlatformQqLink();
       stopRuntimeMonitoring();
+      stopScoreboardSync();
     },
   };
 }

@@ -65,6 +65,7 @@ import { createBindConfirmRoutes } from "./routes/bind-confirm.js";
 import { createQqBindRoutes } from "./routes/qq-bind.js";
 import { createWechatBindRoutes } from "./routes/wechat-bind.js";
 import { createWechatActivityRoutes } from "./routes/wechat-activity.js";
+import { createScoreboardRoutes } from "./routes/scoreboard.js";
 import { createQqEventsRoutes } from "./routes/qq-events.js";
 import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
 import { createStatusRoutes } from "./routes/status.js";
@@ -278,6 +279,8 @@ const healthRoutes = createHealthRoutes();
 // 指标独立落库，避免写入业务模块正在持有的跨请求事务。
 const metricsDb = openDatabase(path.join(path.dirname(env.DB_PATH), "runtime-metrics.sqlite"));
 const statusRoutes = createStatusRoutes({ query: createQuery(metricsDb) });
+/** 世界计分板快照（只在内存中，供桌面端 / 小程序「计分板」页经 CLI 读取） */
+const scoreboardRoutes = createScoreboardRoutes();
 for (const name of PLATFORM_MONITORING_SERVICES) serviceRegistry.registerHandler(PLATFORM_SERVICE_OWNER, name, async () => {
   const response = await fetch(`http://127.0.0.1:${env.PORT}/api/sfmc/metrics`, { signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Error("平台运行指标读取失败");
@@ -650,6 +653,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     if (await moduleRoutesInstance(ctxBase)) return;
     if (await healthRoutes(ctxBase)) return;
     if (await statusRoutes(ctxBase)) return;
+    if (await scoreboardRoutes(ctxBase)) return;
     if (await qqBindRoutes(ctxBase)) return;
     if (await bindConfirmRoutes(ctxBase)) return;
     if (await wechatBindRoutes(ctxBase)) return;

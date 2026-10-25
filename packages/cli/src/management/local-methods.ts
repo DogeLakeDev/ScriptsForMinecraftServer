@@ -11,5 +11,8 @@ import type { ManagementCapability, ManagementMethod } from "@sfmc-bds/managemen
 /** 在 stdio 进程内直接分派给 dispatchManagement 的方法 */
 export const LOCAL_METHODS: ReadonlySet<string> = new Set<ManagementMethod>(["players.list", "activity.query", "activity.stats"]);
 
-/** 由本地方法提供、需要在握手中声明的能力 */
-export const LOCAL_CAPABILITIES: readonly ManagementCapability[] = ["activity"];
+/**
+ * 由本地方法提供、需要在握手中声明的能力。
+ * scoreboard 的两个方法由 stdio.ts 单独分派（写入要转交守护进程），不在 LOCAL_METHODS 中，但同样不依赖守护进程版本。
+ */
+export const LOCAL_CAPABILITIES: readonly ManagementCapability[] = ["activity", "scoreboard"];

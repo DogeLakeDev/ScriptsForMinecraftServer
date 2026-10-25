@@ -36,6 +36,8 @@ export const GATEWAY_METHODS: ReadonlySet<string> = new Set<ManagementMethod>([
   "metrics.read",
   "activity.query",
   "activity.stats",
+  "scoreboard.read",
+  "scoreboard.apply",
   "updates.check",
   "updates.run",
   "operations.list",

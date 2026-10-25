@@ -16,8 +16,12 @@ import type {
   OperationPhase,
   OperationRecord,
   PackRow,
+  ScoreboardObjectiveRow,
+  ScoreboardOperation,
+  ScoreboardParticipant,
   ServiceStatusRow,
 } from "@sfmc-bds/management";
+import { scoreboardCommand, scoreboardOperationError, scoreboardTargetBlock } from "@sfmc-bds/management";
 import { moduleRequireBlockMessage } from "../lib/module-dependencies.js";
 import type { AppearanceMode, DesktopApi, DesktopPreferences, InstanceProfile } from "../../shared/api.js";
 
@@ -107,6 +111,64 @@ function filterMockActivity(params: Record<string, unknown>): ActivityRecord[] {
     (typeof params.to !== "number" || row.timestamp <= params.to) &&
     (!keyword || `${row.actorName} ${row.targetId} ${JSON.stringify(row.payload)}`.toLowerCase().includes(keyword))
   );
+}
+
+/**
+ * 模拟计分板状态：经济模块的 sfmc_money、kills/deaths 与一个含负分和大量假玩家的 event_points，
+ * 覆盖在线/离线玩家、假玩家、实体几类参与者。scoreboard.read / scoreboard.apply 共享这份状态。
+ */
+const mockScoreboard = (() => {
+  let nextId = 1;
+  const players: Array<[string, boolean]> = [["Steve", true], ["Alex", true], ["Notch", false], ["Herobrine", false], ["Jeb_", true]];
+  const participant = (name: string, type: ScoreboardParticipant["type"], online: boolean, score: number): ScoreboardParticipant =>
+    ({ id: nextId++, name, type, online, score });
+  const objectives: ScoreboardObjectiveRow[] = [
+    { id: "sfmc_money", displayName: "金币", participants: players.map(([name, online], index) => participant(name, "player", online, 1200 - index * 230)) },
+    { id: "kills", displayName: "击杀数", participants: [...players.map(([name, online], index) => participant(name, "player", online, (index * 7) % 13)), participant("僵尸", "entity", false, 2)] },
+    { id: "deaths", displayName: "deaths", participants: [] },
+    {
+      id: "event_points",
+      displayName: "活动积分",
+      participants: Array.from({ length: 360 }, (_, index) => participant(`bot_${String(index).padStart(3, "0")}`, "fakePlayer", false, ((index * 37) % 211) - 60)),
+    },
+  ];
+  return {
+    objectives,
+    displaySlots: [{ slot: "sidebar" as const, objectiveId: "kills", sortOrder: "descending" as const }],
+    updatedAt: Date.now(),
+    newId: () => nextId++,
+  };
+})();
+
+/** 按 scoreboard.apply 的单条操作修改模拟计分板（与真实 BDS 命令语义一致：分数目标不存在时新建假玩家） */
+function applyMockScoreboard(op: ScoreboardOperation) {
+  const state = mockScoreboard;
+  const objective = state.objectives.find((row) => row.id === op.objective);
+  if (op.op === "objective.add") {
+    if (objective) throw new Error(`计分项 ${op.objective} 已存在`);
+    state.objectives.push({ id: op.objective, displayName: op.displayName || op.objective, participants: [] });
+    return;
+  }
+  if (!objective) throw new Error(`计分项 ${op.objective} 不存在`);
+  if (op.op === "objective.remove") {
+    state.objectives.splice(state.objectives.indexOf(objective), 1);
+    state.displaySlots = state.displaySlots.filter((slot) => slot.objectiveId !== op.objective);
+    return;
+  }
+  const index = objective.participants.findIndex((row) => (op.participantId !== undefined ? row.id === op.participantId : row.name === op.target));
+  if (op.op === "score.reset") {
+    if (index >= 0) objective.participants.splice(index, 1);
+    return;
+  }
+  const current = index >= 0 ? objective.participants[index] : undefined;
+  if (current) {
+    const block = scoreboardTargetBlock(current);
+    if (block) throw new Error(block);
+  }
+  const base = current?.score ?? 0;
+  const score = op.op === "score.set" ? op.value : op.op === "score.add" ? base + op.value : base - op.value;
+  if (current) current.score = score;
+  else objective.participants.push({ id: state.newId(), name: op.target, type: "fakePlayer", online: false, score });
 }
 
 /** db_config 的示例 Schema：与 SDK 中 schemas/db_config.schema.json 结构一致 */
@@ -397,7 +459,7 @@ export function installMockBridge() {
     platformVersion: id === "local-main" ? "0.2.4" : "0.2.3",
     host: id === "local-main" ? { os: "windows", arch: "x64", release: "10.0.26200" } : { os: "linux", arch: "x64", release: "6.8.0-45-generic" },
     root: profiles.find((row) => row.id === id)?.root ?? "",
-    capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version", "activity"] as Handshake["capabilities"],
+    capabilities: ["services", "logs", "logs-range", "modules", "config", "packs", "players", "updates", "operations", "metrics", "manual-restart", "manual-backup", "pack-import-plan", "pack-icons", "pack-uninstall", "backup-delete", "pack-import-batch", "pack-version", "activity", "scoreboard"] as Handshake["capabilities"],
     daemonPid: id === "local-main" ? 15532 : 2231,
     daemonStartedAt: minutesAgo(id === "local-main" ? 372 : 4380),
     initialized: true,
@@ -631,6 +693,31 @@ export function installMockBridge() {
           byLevel: tally((row) => row.level).map(([level, count]) => ({ level: level as ActivityRecord["level"], count })),
           topActors: tally((row) => row.actorId).filter(([actorId]) => players.some((row) => row.actorId === actorId)).slice(0, 10).map(([actorId, count]) => ({ actorId, actorName: players.find((row) => row.actorId === actorId)?.actorName ?? "", count })),
         };
+      }
+      case "scoreboard.read":
+        return {
+          available: true,
+          fresh: true,
+          updatedAt: mockScoreboard.updatedAt,
+          objectives: structuredClone(mockScoreboard.objectives),
+          displaySlots: structuredClone(mockScoreboard.displaySlots),
+          truncated: false,
+        };
+      case "scoreboard.apply": {
+        const operations = (Array.isArray(params.operations) ? params.operations : []) as ScoreboardOperation[];
+        for (const op of operations) {
+          const error = scoreboardOperationError(op);
+          if (error) throw new Error(error);
+        }
+        const commands = operations.map((op) => {
+          applyMockScoreboard(op);
+          const command = scoreboardCommand(op);
+          const entry: LogEntryWire = { time: new Date().toISOString(), source: "bds", level: "info", text: `> ${command}` };
+          instance.logs.push(entry); emit(id, "log", entry);
+          return command;
+        });
+        mockScoreboard.updatedAt = Date.now();
+        return { commands, sentAt: mockScoreboard.updatedAt - 1 };
       }
       default: throw new Error(`模拟桥未实现: ${method}`);
     }

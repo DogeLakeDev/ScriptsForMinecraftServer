@@ -1,6 +1,7 @@
 import readline from "node:readline";
 import path from "node:path";
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import { toManagementError, type ManagementRequest } from "@sfmc-bds/management";
 import { LOCAL_CAPABILITIES, LOCAL_METHODS } from "./local-methods.js";
 
@@ -13,6 +14,17 @@ function withLocalCapabilities<T extends { ok: boolean; result?: unknown }>(resp
   if (!response.ok || !result || !Array.isArray(result.capabilities)) return response;
   const capabilities = [...new Set([...(result.capabilities as string[]), ...LOCAL_CAPABILITIES])];
   return { ...response, result: { ...result, capabilities } };
+}
+
+/**
+ * 经守护进程的 services.send 向 BDS 控制台写入一行命令；守护进程返回失败时抛出其错误信息。
+ * 使用场景：stdio 会话处理 scoreboard.apply（BDS 标准输入只在守护进程手里）。
+ */
+async function sendViaDaemon(callDaemon: typeof import("../daemon/client.js").callDaemon, line: string): Promise<void> {
+  const request: ManagementRequest = { id: `scoreboard-${randomUUID()}`, method: "services.send", params: { name: "bds", message: line } };
+  const result = await callDaemon("management", { request });
+  if (result.kind !== "management") throw new Error("守护进程没有管理入口，无法发送计分板命令");
+  if (!result.response.ok) throw new Error(result.response.error?.message ?? "发送计分板命令失败");
 }
 
 /** 首帧确定实例目录，之后才加载含 ROOT 单例的 CLI 代码。 */
@@ -45,6 +57,16 @@ export async function runManagementStdio() {
       if (ready && request.method === "metrics.read") {
         const metrics = await import("./metrics-read.js");
         output(JSON.stringify({ type: "res", id: request.id, ok: true, result: await metrics.readRuntimeMetrics(request.params) }) + "\n");
+        return;
+      }
+      // 计分板同样用磁盘上的新代码处理：读取走数据服务；写入生成命令后转交守护进程的 services.send，
+      // 旧守护进程也能写入它托管的 BDS 标准输入，不必为此重启。
+      if (ready && (request.method === "scoreboard.read" || request.method === "scoreboard.apply")) {
+        const scoreboard = await import("./scoreboard.js");
+        const result = request.method === "scoreboard.read"
+          ? await scoreboard.readScoreboard(request.params)
+          : await scoreboard.applyScoreboard(request.params, line => sendViaDaemon(client.callDaemon, line));
+        output(JSON.stringify({ type: "res", id: request.id, ok: true, result }) + "\n");
         return;
       }
       if (ready && LOCAL_METHODS.has(request.method)) {

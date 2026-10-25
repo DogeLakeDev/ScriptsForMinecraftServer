@@ -1,7 +1,7 @@
 /**
  * manage — 管理入口
  *
- * 使用场景：桌面端侧边栏「管理」分组在手机上的落点：模块、世界包、配置、玩家与权限、行为日志、更新与备份，
+ * 使用场景：桌面端侧边栏「管理」分组在手机上的落点：模块、世界包、配置、玩家与权限、行为日志、计分板、更新与备份，
  * 以及实例切换与断开连接。入口按握手能力显示，旧平台缺少的功能不展示。
  */
 import { ask } from "../../../core/actions";
@@ -16,6 +16,7 @@ const ENTRIES = [
   { key: "config", title: "配置", icon: "sliders", tone: "violet", url: "/admin/pages/config/config", capability: "config" },
   { key: "players", title: "玩家与权限", icon: "users", tone: "orange", url: "/admin/pages/players/players", capability: "players" },
   { key: "activity", title: "行为日志", icon: "activity", tone: "pink", url: "/admin/pages/activity/activity", capability: "activity" },
+  { key: "scoreboard", title: "计分板", icon: "trophy", tone: "orange", url: "/admin/pages/scoreboard/scoreboard", capability: "scoreboard" },
   { key: "updates", title: "更新与备份", icon: "download", tone: "teal", url: "/admin/pages/updates/updates", capability: "updates" },
 ];
 
@@ -27,6 +28,7 @@ function render(state: SessionState) {
     config: state.configKeys.length ? `${state.configKeys.length} 个文件` : "",
     players: "",
     activity: "",
+    scoreboard: "",
     updates: "",
   };
   return {

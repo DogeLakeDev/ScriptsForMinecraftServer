@@ -11,3 +11,4 @@ export * from "./protocol/metrics.js";
 export * from "./protocol/desktop-version.js";
 export * from "./protocol/device-login.js";
 export * from "./protocol/activity.js";
+export * from "./protocol/scoreboard.js";

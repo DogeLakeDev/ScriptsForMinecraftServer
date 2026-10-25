@@ -38,6 +38,8 @@ const MANAGEMENT_EXPORTS = [
   "moduleIdentity",
   "moduleRequireBlockMessage",
   "parseDeviceLoginLink",
+  "scoreboardCommand",
+  "scoreboardTargetBlock",
 ];
 
 /** 桌面端渲染层的纯函数源码目录（只引用不依赖 React / DOM 的 lib 文件） */
@@ -60,6 +62,15 @@ const VENDOR_BUNDLES = {
       path.join(desktopLib, "activity.ts"),
       ["ACTIVITY_CATEGORIES", "ACTIVITY_LEVELS", "ACTIVITY_RANGE_PRESETS", "activityLabel", "activityIcon", "activityActor", "activityDetail", "activityPosition", "activityTime", "activityRange"],
     ],
+    // 计分板：标题 / 参与者文案、统计、排行、分布与表单校验，与桌面端「计分板」页同一份规则。
+    [
+      path.join(desktopLib, "scoreboard.ts"),
+      [
+        "SCORE_MODES", "SCOREBOARD_SORTS", "objectiveTitle", "participantName", "participantTag", "objectiveSlots", "formatScore", "formatStat",
+        "scoreStats", "filterParticipants", "sortParticipants", "scoreRanking", "scoreHistogram", "binLabel", "previewScore",
+        "objectiveFormError", "scoreForm",
+      ],
+    ],
   ],
 };
 
@@ -71,7 +82,7 @@ const ICON_NAMES = [
   "unplug", "warning", "alert", "info", "checkCircle", "xCircle", "loader", "clock", "calendar", "copy",
   "download", "upload", "trash", "pencil", "more", "settings", "wrap", "eraser", "archive", "archiveRestore",
   "layers", "link", "zap", "code", "list", "bell", "bug", "activity", "image", "key", "shield", "lock",
-  "filter", "hardDrive", "external", "cpu", "fileCode", "eye", "monitor",
+  "filter", "hardDrive", "external", "cpu", "fileCode", "eye", "monitor", "trophy", "minus",
 ];
 
 /** 按 VENDOR_BUNDLES 打包运行时导出（CommonJS），并写出对应的类型声明 */

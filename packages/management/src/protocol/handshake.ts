@@ -35,7 +35,9 @@ export type ManagementCapability =
   /** 可调用 packs.version 修改资源包清单版本 */
   | "pack-version"
   /** 可调用 activity.query / activity.stats 只读查询行为日志模块的记录 */
-  | "activity";
+  | "activity"
+  /** 可调用 scoreboard.read 查看世界计分板，scoreboard.apply 经控制台命令编辑 */
+  | "scoreboard";
 
 /** handshake 方法结果 */
 export interface Handshake {

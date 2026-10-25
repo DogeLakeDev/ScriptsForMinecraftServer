@@ -30,6 +30,7 @@ import { ModulesPage } from "../pages/ModulesPage.js";
 import { OverviewPage } from "../pages/OverviewPage.js";
 import { PacksPage } from "../pages/PacksPage.js";
 import { PlayersPage } from "../pages/PlayersPage.js";
+import { ScoreboardPage } from "../pages/ScoreboardPage.js";
 import { TasksPage } from "../pages/TasksPage.js";
 import { UiStudioPage } from "../pages/UiStudioPage.js";
 import { UpdatesPage } from "../pages/UpdatesPage.js";
@@ -47,6 +48,7 @@ const PAGES: Record<Exclude<PageKey, "studio">, ComponentType> = {
   config: ConfigPage,
   players: PlayersPage,
   activity: ActivityPage,
+  scoreboard: ScoreboardPage,
   updates: UpdatesPage,
 };
 

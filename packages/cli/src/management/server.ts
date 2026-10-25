@@ -20,6 +20,7 @@ import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { deploymentPreflight, deploymentPort } from "./deployment.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { readRuntimeMetrics } from "./metrics-read.js";
+import { applyScoreboard, readScoreboard } from "./scoreboard.js";
 import { LOCAL_CAPABILITIES } from "./local-methods.js";
 
 import { importPacks, planPackImport, readImportFilenames } from "./pack-import.js";
@@ -85,6 +86,15 @@ async function players() {
   const fresh = typeof data.updatedAt === "number" && Date.now() - data.updatedAt < 60_000;
   return { players: (data.online ?? []).map(row => ({ name: row.name, xuid: "", online: fresh ? true : null })), updatedAt: data.updatedAt ? new Date(data.updatedAt).toISOString() : "", fresh, allowlist, permissions: readJson<unknown[]>(files.permissions, []), sfmcPermissions: readJson<unknown[]>(files.sfmcPermissions, []), bindings: readQqBindings(database) };
 }
+/**
+ * 向托管服务的标准输入写入一行命令。
+ * 使用场景：services.send（控制台页手动命令）与 scoreboard.apply（计分板编辑生成的命令）。
+ */
+async function sendServiceLine(name: ServiceName, message: string): Promise<void> {
+  if (/[\r\n]/.test(message) || !message.trim()) throw new Error("一次只能发送一行命令");
+  const target = services[name]; if (!target.proc?.stdin || !target.running) throw new Error("服务未托管或没有命令输入通道");
+  await withMaintenanceLock(ROOT, async () => { target.proc!.stdin!.write(message + "\n"); });
+}
 async function bdsUpdate(context: TaskContext, checkOnly = false) {
   context.phase("download", checkOnly ? "检查 BDS 更新" : "更新 BDS");
   const args = checkOnly ? ["--check-only", "--no-notify"] : ["--no-start", "--no-notify"];
@@ -135,10 +145,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
       });
     }
     case "services.send": {
-      const name = service(p.name); const message = string(p.message, "命令");
-      if (/[\r\n]/.test(message) || !message.trim()) throw new Error("一次只能发送一行命令");
-      const target = services[name]; if (!target.proc?.stdin || !target.running) throw new Error("服务未托管或没有命令输入通道");
-      return withMaintenanceLock(ROOT, async () => { target.proc!.stdin!.write(message + "\n"); return { delivered: true }; });
+      await sendServiceLine(service(p.name), string(p.message, "命令"));
+      return { delivered: true };
     }
     case "logs.tail": {
       const since = timeBound(p.since, "开始时间");
@@ -254,6 +262,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     }
     case "players.list": return players();
     case "metrics.read": return readRuntimeMetrics(request.params);
+    case "scoreboard.read": return readScoreboard(request.params);
+    case "scoreboard.apply": return applyScoreboard(request.params, line => sendServiceLine("bds", line));
     case "activity.query": return readActivityPage(businessDatabase(), parseActivityFilter(p), parseActivityPaging(p));
     case "activity.stats": return readActivityStats(businessDatabase(), parseActivityFilter(p));
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));

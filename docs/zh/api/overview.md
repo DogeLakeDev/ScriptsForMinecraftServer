@@ -83,6 +83,8 @@ flowchart LR
 | :--- | :---: | :---: | :--- |
 | `/api/health` | `GET` | 公开 | 服务健康状态探活接口。 |
 | `/api/sfmc/status` | `GET` | 公开 | 服务运行时概要与在线状态统计（供 QQ Bot 查询）。 |
+| `/api/sfmc/scoreboard/live` | `POST` | 平台令牌 | 游戏内平台脚本上报计分板快照、哈希或空闲探询；回复是否需要继续同步、是否需补发完整快照。 |
+| `/api/sfmc/scoreboard` | `GET` | 本机 | CLI 的 `scoreboard.read` 读取最后一次计分板快照；每次读取都会让脚本在随后 30 秒内保持同步。 |
 | `/api/sfmc/configs/all` | `GET` | 启动豁免 | SAPI 冷启动时的全量配置与 Token 一次性快照。 |
 | `/api/sfmc/modules*` | `GET` / `POST` | 模块管控 | [模块控制 API](./module-control.md)：查询清单、启停切换。 |
 | `/api/sfmc/configs/:key` | `GET` / `POST` | 模块身份 | [配置服务 API](./config.md)：单模块私有命名空间读写。 |

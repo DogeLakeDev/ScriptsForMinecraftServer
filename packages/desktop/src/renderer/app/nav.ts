@@ -8,7 +8,7 @@ import type { ManagementCapability } from "@sfmc-bds/management";
 import type { IconName } from "../components/icons.js";
 
 /** 页面标识（与原实现的 NAV key 保持一致） */
-export type PageKey = "overview" | "logs" | "modules" | "config" | "packs" | "players" | "activity" | "updates" | "tasks" | "studio";
+export type PageKey = "overview" | "logs" | "modules" | "config" | "packs" | "players" | "activity" | "scoreboard" | "updates" | "tasks" | "studio";
 
 /** 单个导航项 */
 export interface NavItem {
@@ -103,6 +103,14 @@ export const NAV: NavItem[] = [
     group: "维护",
     capability: "activity",
     keywords: "activity 行为 日志 审计 记录 破坏 放置 聊天 导出",
+  },
+  {
+    key: "scoreboard",
+    label: "计分板",
+    icon: "trophy",
+    group: "维护",
+    capability: "scoreboard",
+    keywords: "scoreboard 计分板 计分项 分数 排行 objective score",
   },
 ];
 
