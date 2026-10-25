@@ -7,6 +7,7 @@
  * 每个图标按文件单独导入（@tabler/icons-react/dist/esm/icons/<Name>.mjs），避免开发服务器加载整个图标库；
  * 这些路径没有逐个的类型声明，统一由 tabler-icons.d.ts 声明。
  * 小程序 scripts/build-assets.mjs 会解析 ICONS 表，取每项的描边组件生成遮罩图标，改表时保持「名称: [描边, 实心?]」的写法。
+ * 某张描边不用 Tabler 原图时，在路径数组前标 `@outline 名称`，生成脚本改读这份路径。
  */
 /// <reference path="./tabler-icons.d.ts" />
 import type { TablerIcon } from "@tabler/icons-react";
@@ -128,7 +129,6 @@ import IconRotateClockwise from "@tabler/icons-react/dist/esm/icons/IconRotateCl
 import IconSearch from "@tabler/icons-react/dist/esm/icons/IconSearch.mjs";
 import IconSearchFilled from "@tabler/icons-react/dist/esm/icons/IconSearchFilled.mjs";
 import IconSelector from "@tabler/icons-react/dist/esm/icons/IconSelector.mjs";
-import IconServer from "@tabler/icons-react/dist/esm/icons/IconServer.mjs";
 import IconServer2 from "@tabler/icons-react/dist/esm/icons/IconServer2.mjs";
 import IconSettings from "@tabler/icons-react/dist/esm/icons/IconSettings.mjs";
 import IconSettingsFilled from "@tabler/icons-react/dist/esm/icons/IconSettingsFilled.mjs";
@@ -156,7 +156,50 @@ import IconWorld from "@tabler/icons-react/dist/esm/icons/IconWorld.mjs";
 import IconWorldFilled from "@tabler/icons-react/dist/esm/icons/IconWorldFilled.mjs";
 import IconX from "@tabler/icons-react/dist/esm/icons/IconX.mjs";
 import IconXFilled from "@tabler/icons-react/dist/esm/icons/IconXFilled.mjs";
-import { useId, type CSSProperties } from "react";
+import { forwardRef, useId, type CSSProperties } from "react";
+
+/**
+ * 服务器图标的描边。
+ * 使用场景：语义名 server，侧栏里的 SSH 实例、添加实例和空状态，以及小程序里的同名遮罩。
+ * Tabler 的 server 上下两个机箱共用 y=12 那条边，描边叠了两次，缩小后中间被抗锯齿糊成一条灰缝。
+ * 这里每层仍高 8，中间空出 4：默认线宽 2 时笔画之间留出 2，加粗到 2.5 也不会叠上。
+ * @outline server
+ */
+const SERVER_OUTLINE = [
+  "M3 5a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-2",
+  "M3 17a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-2",
+  "M7 6l0 .01",
+  "M7 18l0 .01",
+] as const;
+
+/** 按 Tabler 描边图标的 size、stroke、color 渲染 SERVER_OUTLINE，供 ICONS 的 server 项使用。 */
+const ServerOutline: TablerIcon = forwardRef(function ServerOutline(
+  { color = "currentColor", size = 24, stroke = 2, title, className, children, ...rest },
+  ref,
+) {
+  return (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...rest}
+    >
+      {title ? <title>{title}</title> : null}
+      {SERVER_OUTLINE.map((d) => (
+        <path key={d} d={d} />
+      ))}
+      {children}
+    </svg>
+  );
+});
 
 /** 一个语义图标：描边版，以及可选的实心版（Tabler 只为部分图标提供实心版） */
 type IconGlyphs = readonly [outline: TablerIcon, filled?: TablerIcon];
@@ -202,7 +245,7 @@ const ICONS = {
   restart: [IconRotateClockwise],
   power: [IconPower],
   monitor: [IconDeviceDesktop, IconDeviceDesktopFilled],
-  server: [IconServer],
+  server: [ServerOutline],
   globe: [IconWorld, IconWorldFilled],
   database: [IconDatabase, IconDatabaseFilled],
   message: [IconMessageCircle, IconMessageCircleFilled],

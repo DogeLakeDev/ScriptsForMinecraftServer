@@ -13,6 +13,7 @@
  * 2. miniprogram/styles/icons.wxss
  *    按桌面端 @sfmc-bds/ui 的语义图标表（icons.tsx 中的 ICONS）取 Tabler 描边版 SVG，
  *    生成 `.i-<语义名>` 遮罩图标类，颜色跟随 currentColor，与桌面端图标保持一致。
+ *    标了 @outline 的名称改用 icons.tsx 里的路径，不读 Tabler 原图。
  * 3. miniprogram/assets/tabbar/<主题>/*.png
  *    原生标签栏图标：仍用 Phosphor（单独的 TAB_ICONS 表），按 theme.json 引用的路径与颜色渲染浅色 / 深色两套 PNG。
  * 4. miniprogram/styles/palette.wxss
@@ -135,12 +136,46 @@ function readIconTable() {
 const kebab = (name) => name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/([a-zA-Z])([0-9])/g, "$1-$2").toLowerCase();
 
 /**
- * 按语义图标名读取 Tabler 描边版 SVG 源码。
+ * 读取 icons.tsx 里标了 @outline 名称 的本地描边路径。
+ * 使用场景：某张图标不用 Tabler 原图时，路径以字符串数组写在标记后面，遮罩与桌面端用同一份。
+ * @param {string} source icons.tsx 全文
+ * @returns {Map<string, string[]>}
+ */
+function readLocalOutlines(source) {
+  /** @type {Map<string, string[]>} */
+  const outlines = new Map();
+  for (const match of source.matchAll(/@outline\s+(\w+)\b[^[\]]*\[([\s\S]*?)\]/g)) {
+    const paths = [...match[2].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+    if (!paths.length) throw new Error(`@outline ${match[1]} 没有路径`);
+    outlines.set(match[1], paths);
+  }
+  return outlines;
+}
+
+/**
+ * 把本地描边路径收成与 Tabler 描边版相同属性的 SVG，供遮罩着色。
+ * @param {string[]} paths
+ */
+function outlineSvg(paths) {
+  const body = paths.map((d) => `<path d="${d}" />`).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
+
+/**
+ * 按语义图标名读取描边版 SVG 源码。
  * 使用场景：生成小程序页面里的遮罩图标（标签栏不走这里，见 TAB_ICONS）。
+ * 有 @outline 标记的名称用 icons.tsx 里的路径；其余仍读 Tabler 描边文件。
  * @param {Map<string, string>} table readIconTable 的结果
+ * @param {Map<string, string[]>} outlines readLocalOutlines 的结果
+ * @param {string} iconsBlock ICONS 表的花括号内容，用来确认本地描边已经登记
  * @param {string} name 语义图标名
  */
-function tablerSvg(table, name) {
+function tablerSvg(table, outlines, iconsBlock, name) {
+  const paths = outlines.get(name);
+  if (paths) {
+    if (!new RegExp(`\\b${name}\\s*:`).test(iconsBlock)) throw new Error(`@outline ${name} 没有登记在 ICONS 表里`);
+    return outlineSvg(paths);
+  }
   const component = table.get(name);
   if (!component) throw new Error(`@sfmc-bds/ui 的 ICONS 中没有图标 ${name}`);
   // 按本包直接依赖的链接位置读取 SVG 资源。
@@ -179,10 +214,13 @@ function phosphorTabSvg(name, weight) {
 
 /** 生成遮罩图标样式 */
 function buildIcons() {
+  const source = fs.readFileSync(path.resolve(packageDir, "..", "ui", "src", "components", "icons.tsx"), "utf8");
+  const iconsBlock = /const ICONS = \{([\s\S]*?)\} satisfies/.exec(source)?.[1] ?? "";
   const table = readIconTable();
+  const outlines = readLocalOutlines(source);
   const rules = ICON_NAMES.map((name) => {
     // 遮罩只看不透明度：描边改成纯黑即可，颜色由 .i 的 background-color（currentColor）决定。
-    const svg = tablerSvg(table, name)
+    const svg = tablerSvg(table, outlines, iconsBlock, name)
       .replace(/\s+/g, " ")
       .replace(/stroke="currentColor"/g, 'stroke="#000"')
       .replace(/"/g, "'")
