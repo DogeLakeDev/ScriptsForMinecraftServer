@@ -92,6 +92,12 @@ export interface DbClient {
   tx<T>(fn: (tx: TxContext) => Promise<T>): Promise<T>;
   audit(table: string, rowId: string | number, action: string, data?: Record<string, unknown>): Promise<void>;
   idempotent<T>(action: string, key: string, fn: () => Promise<T>): Promise<T>;
+  /**
+   * 让 db-server 中止本模块名下仍未结束的交互式事务会话，返回被中止的数量。
+   * 使用场景：宿主 install 在新脚本实例启动、模块 boot 之前调用，回收 /reload 前旧实例遗留的会话；
+   * 业务模块不应调用（会中止自己正在进行的事务）。
+   */
+  reapOrphanSessions(): Promise<number>;
 }
 
 type StepOk = { ok: true; result: TxStepResult };
@@ -297,6 +303,13 @@ export function createDbClient(moduleId: string, token: string): DbClient {
       await post("/api/sfmc/db/idempotent/commit", { action, key });
       return result;
     },
+
+    async reapOrphanSessions() {
+      requireModuleContext("reapOrphanSessions");
+      if (state.currentTxId) throw new DbError("reapOrphanSessions 不可在事务内调用", "forbidden", 0);
+      const res = await post<{ aborted?: number }>("/api/sfmc/db/tx/reap", {});
+      return typeof res?.aborted === "number" ? res.aborted : 0;
+    },
   };
 
   return client;
@@ -391,7 +404,7 @@ export function isDbTxRecording(): boolean {
 }
 
 /** SAPI 侧数据库门面（兼容单例）：转发到当前激活的作用域客户端。 */
-export const db: Omit<DbClient, "moduleId" | "setAuthToken" | "isTxRecording"> = {
+export const db: Omit<DbClient, "moduleId" | "setAuthToken" | "isTxRecording" | "reapOrphanSessions"> = {
   defineTable(name, columns, opts) {
     return activeClient().defineTable(name, columns, opts);
   },

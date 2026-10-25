@@ -386,6 +386,26 @@ export class TxRunner {
     return { ok: true };
   }
 
+  /**
+   * 中止某模块名下的全部交互式事务会话。
+   * 使用场景：BDS 执行 /reload 或重启后，新脚本实例在任何模块初始化之前经
+   * POST /api/sfmc/db/tx/reap 调用，回收旧实例来不及提交/回滚而遗留的会话，
+   * 避免它们占住全局事务槽直到空闲超时，导致其他模块的读写返回「事务繁忙」。
+   *
+   * @param moduleId 会话所属模块（由路由按鉴权身份传入，模块只能回收自己的会话）。
+   * @returns 被中止的会话数量。
+   */
+  abortModuleSessions(moduleId: string): number {
+    const stale = [...this.sessions.entries()]
+      .filter(([, session]) => session.moduleId === moduleId)
+      .map(([txId]) => txId);
+    for (const txId of stale) {
+      log.warn(`[tx-session ${txId.slice(0, 8)}] reaped module=${moduleId}（脚本实例已重载）`);
+      this.abortSession(txId);
+    }
+    return stale.length;
+  }
+
   private abortSession(txId: string): void {
     const session = this.sessions.get(txId);
     if (!session) return;

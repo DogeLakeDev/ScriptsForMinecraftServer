@@ -168,6 +168,8 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
       const db = getDbClient(d.id);
       setServiceModuleContext(d.id, token, () => db.isTxRecording());
     }
+    // db-server 全局只有一个事务槽，任一模块的遗留会话都会挡住其他模块，必须在全部模块 boot 前回收
+    await reapStaleTxSessions(ModuleRegistry.list().map((d) => d.id));
     await ModuleRegistry.bootAll();
     announceLoaded();
     // 若环境无 worldLoad 事件（如 1.18 稳定版）或事件在 ConfigManager 就绪前已触发，立即执行 bootAfterWorldLoad
@@ -220,6 +222,27 @@ export function installHostBootstrap(options: InstallOptions = {}): HostBackend 
   }
 
   return _bootstrapBackend();
+}
+
+/**
+ * 回收各模块旧脚本实例遗留的交互式事务会话。
+ * 使用场景：runStartup 在 ModuleRegistry.bootAll() 之前调用。/reload 时旧实例刚开启的事务
+ * 来不及提交或回滚，会占住 db-server 的全局事务槽直到空闲超时，新实例的模块 init 读写因此返回「事务繁忙」。
+ * 逐个模块串行请求；没有 token 的模块跳过，单个失败（如旧版 db-server 无此接口）只记日志，不阻断启动。
+ */
+async function reapStaleTxSessions(moduleIds: string[]): Promise<void> {
+  let aborted = 0;
+  const failed: string[] = [];
+  for (const id of moduleIds) {
+    if (!ConfigManager.getModuleToken(id)) continue;
+    try {
+      aborted += await getDbClient(id).reapOrphanSessions();
+    } catch (e) {
+      failed.push(`${id}: ${(e as Error).message}`);
+    }
+  }
+  if (aborted > 0) debug.w("HOST", `已回收旧脚本实例遗留的 ${aborted} 个事务会话`);
+  if (failed.length > 0) debug.w("HOST", `回收遗留事务会话失败: ${failed.join("; ")}`);
 }
 
 function _bootstrapBackend(): HostBackend {

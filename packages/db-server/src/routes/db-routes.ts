@@ -8,6 +8,7 @@
  *   POST /api/sfmc/db/tx/step           body {txId, step}                → {result}
  *   POST /api/sfmc/db/tx/commit         body {txId}                      → TxResponse
  *   POST /api/sfmc/db/tx/rollback       body {txId}                      → {ok}
+ *   POST /api/sfmc/db/tx/reap           body {}                          → {ok, aborted}（回收本模块遗留会话）
  *   POST /api/sfmc/db/query             body {table, opts?}              → {rows}
  *   ...
  */
@@ -119,6 +120,11 @@ export function createDbRoutes(depsIn: Partial<DbRoutesDeps>) {
         path: "/api/sfmc/db/tx/rollback",
         requireTxId: true,
         run: ({ txId }) => deps.txRunner!.rollbackSession(txId, moduleId) as SessionReply,
+      },
+      {
+        // 新脚本实例启动时回收本模块旧实例遗留的会话；只作用于鉴权身份自己的会话
+        path: "/api/sfmc/db/tx/reap",
+        run: () => ({ ok: true, aborted: deps.txRunner!.abortModuleSessions(moduleId) }),
       },
     ];
     for (const op of sessionOps) {
