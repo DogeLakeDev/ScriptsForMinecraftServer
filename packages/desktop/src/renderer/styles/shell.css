@@ -145,6 +145,19 @@
   gap: 8px;
 }
 
+/* 鼠标不在侧栏、也没有键盘焦点时隐藏滚动条滑块；轨道宽度保留，显示时内容不会左右跳动 */
+.sb-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+.sidebar:is(:hover, :has(:focus-visible)) .sb-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--c-fill-2);
+}
+
+.sidebar:is(:hover, :has(:focus-visible)) .sb-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--c-text-4);
+}
+
 .sb-section {
   display: flex;
   flex-direction: column;
