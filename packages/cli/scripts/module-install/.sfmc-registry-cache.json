@@ -1,5 +1,5 @@
 {
-  "fetchedAt": 1792926615467,
+  "fetchedAt": 1792928891224,
   "index": {
     "activity-log": {
       "npm": "@sfmc-bds/module-activity-log",
@@ -165,9 +165,9 @@
     },
     "online-time": {
       "npm": "@sfmc-bds/module-online-time",
-      "version": "0.2.2",
+      "version": "1.0.0",
       "sdk": ">=0.2.0-beta.17",
-      "repo": "https://github.com/Tanya7z/sfmc-module-online-time",
+      "repo": "https://github.com/DogeLakeDev/sfmc-module-online-time",
       "name": "在线时长统计",
       "description": "进服打点与心跳增量结转在线统计",
       "category": "utility",
