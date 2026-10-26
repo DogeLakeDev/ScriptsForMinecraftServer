@@ -20,6 +20,14 @@ export interface SavedAlert {
 const ARCHIVE_PREFIX = "sfmc.desktop.alertArchive.";
 const SEEN_PREFIX = "sfmc.desktop.alertSeen.";
 const HIDDEN_PREFIX = "sfmc.desktop.alertHidden.";
+const READ_PREFIX = "sfmc.desktop.alertRead.";
+
+/**
+ * 单条告警的已读记录：告警键 → 点开时这条告警最近出现的时间。
+ * 使用场景：在告警抽屉或总览里点开某条告警后只把这一条标为已读；同文之后再出现（最近时间变晚）仍算未读。
+ * 「全部标为已读」会清空它，由已读时间统一覆盖。
+ */
+export type AlertReadMap = Record<string, string>;
 
 /** 同一条告警的稳定键。使用场景：忽略、已读和合并都用它，避免同一句报错拆成多条。 */
 export function alertKey(alert: Pick<SavedAlert, "source" | "level" | "text">): string {
@@ -177,6 +185,36 @@ export function loadAlertSeen(instanceId: string): number {
 export function saveAlertSeen(instanceId: string, seenAt: number) {
   if (!instanceId) return;
   localStorage.setItem(SEEN_PREFIX + instanceId, String(seenAt));
+}
+
+/** 读取单条已读记录。损坏的本地数据按空记录处理。 */
+export function loadAlertRead(instanceId: string): AlertReadMap {
+  if (!instanceId) return {};
+  try {
+    const raw = JSON.parse(localStorage.getItem(READ_PREFIX + instanceId) ?? "{}") as unknown;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+    const read: AlertReadMap = {};
+    for (const [key, time] of Object.entries(raw)) if (typeof time === "string") read[key] = time;
+    return read;
+  } catch {
+    return {};
+  }
+}
+
+export function saveAlertRead(instanceId: string, read: AlertReadMap) {
+  if (!instanceId) return;
+  localStorage.setItem(READ_PREFIX + instanceId, JSON.stringify(read));
+}
+
+/**
+ * 一条告警是否未读：最近出现时间晚于上次「全部标为已读」，且晚于单独点开它时记下的时间。
+ * 使用场景：顶栏角标计数、抽屉的「未读」筛选和行高亮共用这一条判定。
+ */
+export function isAlertUnread(alert: SavedAlert, seenAt: number, read: AlertReadMap): boolean {
+  const time = Date.parse(alert.lastTime);
+  if (!(time > seenAt)) return false;
+  const readTime = read[alertKey(alert)];
+  return readTime === undefined || time > Date.parse(readTime);
 }
 
 /** 用户忽略的告警键。 */

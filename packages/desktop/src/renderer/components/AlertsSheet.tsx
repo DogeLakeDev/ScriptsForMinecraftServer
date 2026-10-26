@@ -13,14 +13,18 @@ import {
   alertKey,
   alertLineKey,
   foldAlertLines,
+  isAlertUnread,
   loadAlertArchive,
+  loadAlertRead,
   loadAlertSeen,
   loadHiddenAlerts,
   markCoveredLines,
   mergeAlertSnapshot,
   saveAlertArchive,
+  saveAlertRead,
   saveAlertSeen,
   saveHiddenAlerts,
+  type AlertReadMap,
   type SavedAlert,
 } from "../lib/alert-archive.js";
 import { errorText, fullTime, relativeTime } from "../lib/format.js";
@@ -42,6 +46,10 @@ interface AlertsApi {
   /** 守护进程还不能按时间读日志文件，档案里只有本次连接已经载入的报错 */
   legacy: boolean;
   markAllRead: () => void;
+  /** 只把这一条标为已读。使用场景：在抽屉或总览里点开某条告警跳到控制台时。 */
+  markRead: (alert: SavedAlert) => void;
+  /** 这一条是否未读（同时考虑「全部标为已读」和单条已读记录） */
+  isUnread: (alert: SavedAlert) => boolean;
   hideAlert: (alert: SavedAlert) => void;
   restoreHidden: () => void;
 }
@@ -51,6 +59,8 @@ interface ArchiveState {
   alerts: SavedAlert[];
   seenAt: number;
   hidden: string[];
+  /** 单条已读记录，见 AlertReadMap */
+  read: AlertReadMap;
 }
 
 interface ScanState {
@@ -69,15 +79,15 @@ export function useAlerts(): AlertsApi {
   return value;
 }
 
-/** 从本地读出这个实例的告警、已读时间和忽略名单。 */
+/** 从本地读出这个实例的告警、已读时间、单条已读记录和忽略名单。 */
 function readArchive(id: string): ArchiveState {
-  return { id, alerts: loadAlertArchive(id), seenAt: loadAlertSeen(id), hidden: loadHiddenAlerts(id) };
+  return { id, alerts: loadAlertArchive(id), seenAt: loadAlertSeen(id), hidden: loadHiddenAlerts(id), read: loadAlertRead(id) };
 }
 
-function unreadCount(alerts: SavedAlert[], hidden: Set<string>, seenAt: number): number {
+function unreadCount(alerts: SavedAlert[], hidden: Set<string>, seenAt: number, read: AlertReadMap): number {
   return alerts.reduce((count, alert) => {
     if (hidden.has(alertKey(alert))) return count;
-    return Date.parse(alert.lastTime) > seenAt ? count + 1 : count;
+    return isAlertUnread(alert, seenAt, read) ? count + 1 : count;
   }, 0);
 }
 
@@ -160,7 +170,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
 
   const hidden = useMemo(() => new Set(resolved.hidden), [resolved.hidden]);
   const alerts = useMemo(() => resolved.alerts.filter((alert) => !hidden.has(alertKey(alert))), [hidden, resolved.alerts]);
-  const unread = useMemo(() => unreadCount(resolved.alerts, hidden, resolved.seenAt), [hidden, resolved.alerts, resolved.seenAt]);
+  const unread = useMemo(() => unreadCount(resolved.alerts, hidden, resolved.seenAt, resolved.read), [hidden, resolved.alerts, resolved.seenAt, resolved.read]);
 
   const api = useMemo<AlertsApi>(() => ({
     openAlerts: () => setOpen(true),
@@ -175,8 +185,18 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
       if (!current) return;
       const seenAt = Date.now();
       saveAlertSeen(current, seenAt);
-      setArchive((state) => state.id === current ? { ...state, seenAt } : state);
+      saveAlertRead(current, {});
+      setArchive((state) => state.id === current ? { ...state, seenAt, read: {} } : state);
     },
+    markRead: (alert) => {
+      setArchive((state) => {
+        if (!state.id || !isAlertUnread(alert, state.seenAt, state.read)) return state;
+        const next = { ...state.read, [alertKey(alert)]: alert.lastTime };
+        saveAlertRead(state.id, next);
+        return { ...state, read: next };
+      });
+    },
+    isUnread: (alert) => isAlertUnread(alert, resolved.seenAt, resolved.read),
     hideAlert: (alert) => {
       const key = alertKey(alert);
       setArchive((state) => {
@@ -193,7 +213,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
         return { ...state, hidden: [] };
       });
     },
-  }), [alerts, capabilitiesKnown, current, resolved.hidden.length, resolved.seenAt, scan, unread]);
+  }), [alerts, capabilitiesKnown, current, resolved.hidden.length, resolved.read, resolved.seenAt, scan, unread]);
 
   return (
     <AlertsContext.Provider value={api}>
@@ -203,15 +223,10 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** 一条告警是否在上次「全部标为已读」之后又出现过。 */
-function isUnread(alert: SavedAlert, seenAt: number): boolean {
-  return Date.parse(alert.lastTime) > seenAt;
-}
-
 /** 全部告警抽屉：搜索、级别、来源、未读、复制、忽略，以及回到控制台。 */
 function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { current, openLog } = useDesktop();
-  const { alerts, unread, hiddenCount, seenAt, scanning, truncated, legacy, markAllRead, hideAlert, restoreHidden } = useAlerts();
+  const { alerts, unread, hiddenCount, scanning, truncated, legacy, markAllRead, markRead, isUnread, hideAlert, restoreHidden } = useAlerts();
   const [now, setNow] = useState(() => Date.now());
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState<"all" | "error" | "warn">("all");
@@ -247,7 +262,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
   const filtered = alerts.filter((alert) => {
     if (level !== "all" && alert.level !== level) return false;
     if (source && alert.source !== source) return false;
-    if (unreadOnly && !isUnread(alert, seenAt)) return false;
+    if (unreadOnly && !isUnread(alert)) return false;
     if (!needle) return true;
     return alert.text.toLowerCase().includes(needle) || alert.source.toLowerCase().includes(needle);
   });
@@ -267,6 +282,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
     );
   };
   const jump = (alert: SavedAlert) => {
+    markRead(alert);
     onClose();
     openLog({ time: alert.lastTime, source: alert.source, level: alert.level, text: alert.text });
   };
@@ -333,7 +349,7 @@ function AlertsSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
           {filtered.length ? (
             <ul className="alert-archive-list">
               {filtered.map((alert) => {
-                const unreadRow = isUnread(alert, seenAt);
+                const unreadRow = isUnread(alert);
                 return (
                   <li key={alertKey(alert)} className={unreadRow ? "alert-archive-row is-unread" : "alert-archive-row"}>
                     <button type="button" className="feed-item alert-archive-main" onClick={() => jump(alert)}>

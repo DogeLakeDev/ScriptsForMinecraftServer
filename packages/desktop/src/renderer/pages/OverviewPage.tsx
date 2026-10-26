@@ -4,7 +4,7 @@
  * 使用场景：接入实例后的默认页，以服务状态、玩家快照、近期告警和维护任务帮助排查异常。
  * 布局自上而下：状态条（有没有问题）→ 服务表（底部附实例详情）+ 需要关注（要操作什么）→ 实例状态曲线（趋势）。
  */
-import type { ManagementMethodMap, ServiceStatusRow } from "@sfmc-bds/management";
+import type { LogEntryWire, ManagementMethodMap, ServiceStatusRow } from "@sfmc-bds/management";
 import { useEffect, useState, type ReactNode } from "react";
 import { activeTasks, useDesktop } from "../app/desktop.js";
 import { Button, IconButton } from "../components/controls.js";
@@ -113,7 +113,13 @@ function ServiceRow({ row }: { row: ServiceStatusRow }) {
 
 export function OverviewPage() {
   const { model, selected, editable, submit, setPage, request, openLog } = useDesktop();
-  const { alerts, openAlerts } = useAlerts();
+  const { alerts, openAlerts, markRead } = useAlerts();
+  /** 点开「需要关注」里的一条告警：先把这一条标为已读，再跳到控制台对应位置。 */
+  const selectAlert = (log: LogEntryWire) => {
+    const alert = alerts.find((row) => row.source === log.source && row.level === log.level && row.text === log.text);
+    if (alert) markRead(alert);
+    openLog(log);
+  };
   const [startupOpen, setStartupOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const metrics = useRuntimeMetrics();
@@ -294,7 +300,7 @@ export function OverviewPage() {
             </button>
           }
         >
-          <AlertFeed groups={alerts.map(toAlertGroup)} now={now} limit={3} onSelect={openLog} emptyText="还没有保存的警告或错误" />
+          <AlertFeed groups={alerts.map(toAlertGroup)} now={now} limit={3} onSelect={selectAlert} emptyText="还没有保存的警告或错误" />
           <div className="overview-attention-tasks">
             <div className="overview-attention-head">
               <span>
