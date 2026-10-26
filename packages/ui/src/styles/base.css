@@ -232,6 +232,16 @@ mark {
   app-region: no-drag;
 }
 
+/*
+ * 对话框、抽屉、菜单和弹出卡片挂在页面根部，可能盖住顶栏拖拽区（顶栏高 --header-h，抽屉从 --sheet-top 开始）。
+ * Electron 只按 app-region 计算可拖拽范围、不看层叠顺序，这里显式排除，否则浮层里落在顶栏高度内的按钮点击会被当成拖动窗口。
+ */
+.dialog,
+.pop {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* ---------- 文字工具类 ---------- */
 
 .mono {
