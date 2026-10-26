@@ -1,5 +1,12 @@
 # @sfmc-bds/mp-gateway
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [2c10360]
+  - @sfmc-bds/management@0.9.1
+
 ## 0.1.3
 
 ### Patch Changes
