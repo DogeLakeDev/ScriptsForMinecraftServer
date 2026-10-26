@@ -51,7 +51,6 @@
         <view class="tile tile-pink"><text class="i i-activity"></text></view>
         <view class="list-main">
           <view class="list-title"><text class="truncate">我的行为记录</text></view>
-          <view class="list-sub">加入、聊天、方块、实体等游戏内记录</view>
         </view>
         <text class="i i-sm i-chevron-right muted"></text>
       </view>
@@ -64,18 +63,16 @@
     <view class="surface-body">
       <block wx:if="{{bindCode}}">
         <view class="me-code mono num" bindtap="copyBindCode">{{bindCode}}</view>
-        <view class="small muted me-center">{{bindRemain}} · 点击复制</view>
+        <view class="small muted me-center">{{bindRemain}} 点击复制</view>
         <view class="callout me-steps">
           <text class="i i-info"></text>
           <view class="callout-body">
             <view class="callout-text">1. 进入服务器，在聊天框输入 /c:bind</view>
             <view class="callout-text">2. 再把上面的 6 位绑定码发送到聊天框</view>
-            <view class="callout-text">完成后本页会自动刷新</view>
           </view>
         </view>
       </block>
       <block wx:else>
-        <view class="small muted">用微信绑定游戏角色后，可在这里查看余额与在线时长。</view>
         <view class="btn btn-primary btn-block btn-lg me-action {{requesting ? 'disabled' : ''}}" hover-class="hover" bindtap="requestBind">
           <text class="i {{requesting ? 'i-loader spin' : 'i-link'}}"></text>
           <text>获取绑定码</text>

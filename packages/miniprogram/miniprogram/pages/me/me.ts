@@ -8,7 +8,7 @@
  * - 始终显示「进入管理端」：3 级管理员以微信身份管理，其他用户用访问令牌添加 / 管理实例；
  *   管理员还可扫码 / 输入登录码批准桌面端登录。
  */
-import { ask, guard } from "../../core/actions";
+import { ask, askChoice, guard } from "../../core/actions";
 import { enterAdmin } from "../../core/admin-entry";
 import { errorText } from "../../core/format";
 import { homePlayerApi, type BindCode, type DeviceRef, type PlayerMe } from "../../core/player-api";
@@ -206,18 +206,22 @@ Page({
     });
   },
 
-  /** 查看待授权设备 → 二次确认 → 批准或拒绝 */
+  /** 查看待授权设备 → 二次确认 → 批准或拒绝；确认框没能打开时不拒绝，请求保持等待，可重新扫码或输入登录码 */
   async confirmDevice(ref: DeviceRef) {
     const api = homePlayerApi();
     const pending = await guard(() => api.describeDevice(ref), "找不到登录请求");
     if (!pending) return;
-    const allow = await ask(
+    const choice = await askChoice(
       "允许桌面端登录？",
       `设备「${pending.name}」将以你的管理员身份管理 ${HOME_SERVER.name}，授权 30 天，可在管理端「已授权设备」中撤销。`,
       "允许",
     );
+    if (choice.kind === "failed") {
+      wx.showToast({ title: `确认框打开失败，请重试${choice.errMsg ? `（${choice.errMsg}）` : ""}`, icon: "none", duration: 4000 });
+      return;
+    }
     const target: DeviceRef = { deviceId: pending.deviceId };
-    if (!allow) {
+    if (choice.kind === "cancel") {
       await guard(() => api.denyDevice(target), "操作失败");
       return;
     }

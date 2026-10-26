@@ -102,18 +102,36 @@ export async function guard<T>(action: () => Promise<T>, failTitle = "操作失�
   }
 }
 
-/** 简单的二次确认（不涉及后台任务，例如放弃草稿、删除本机实例档案） */
-export function ask(title: string, content: string, confirmText = "确定", danger = false): Promise<boolean> {
+/**
+ * 二次确认的结果：确认 / 取消 / 对话框没能打开。
+ * 使用场景：批准桌面端登录时，“取消”会通知网关拒绝，而“没能打开”必须保持请求等待，不能当作拒绝。
+ */
+export type AskResult = { kind: "confirm" } | { kind: "cancel" } | { kind: "failed"; errMsg: string };
+
+/**
+ * 弹出二次确认并区分三种结果。
+ * 使用场景：ask 的底层实现；需要区分“取消”与“打开失败”的调用方（「我的」页批准桌面端登录）直接使用。
+ * 真机会严格校验参数类型，值为 undefined 的字段可能导致 showModal 直接失败，因此 confirmColor 只在危险操作时传入。
+ */
+export function askChoice(title: string, content: string, confirmText = "确定", danger = false): Promise<AskResult> {
   return new Promise((resolve) => {
     wx.showModal({
       title,
       content,
       confirmText,
-      confirmColor: danger ? "#d92d2d" : undefined,
-      success: (result) => resolve(result.confirm),
-      fail: () => resolve(false),
+      ...(danger ? { confirmColor: "#d92d2d" } : {}),
+      success: (result) => resolve(result.confirm ? { kind: "confirm" } : { kind: "cancel" }),
+      fail: (error) => {
+        console.warn("[ask] showModal 失败", error);
+        resolve({ kind: "failed", errMsg: error?.errMsg ?? "" });
+      },
     });
   });
+}
+
+/** 简单的二次确认（不涉及后台任务，例如放弃草稿、删除本机实例档案）；取消或打开失败都返回 false */
+export async function ask(title: string, content: string, confirmText = "确定", danger = false): Promise<boolean> {
+  return (await askChoice(title, content, confirmText, danger)).kind === "confirm";
 }
 
 /** 复制文本并提示 */
