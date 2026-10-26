@@ -7,6 +7,7 @@
  *   PUT  …/packs/inbox   上传世界包到实例收件箱（需管理鉴权）
  *   …/auth/*、…/player/* 微信登录、玩家绑定与桌面端设备登录（player-routes.ts / device-routes.ts）
  *   GET  …/player/activity 玩家查看自己的行为记录（player-activity-routes.ts）
+ *   GET  …/map/*         小程序「地图」页：只读转发 bluemap 地图服务（map-routes.ts）
  * 管理鉴权走鉴权链（authenticators.ts）：静态令牌、小程序管理员会话、桌面设备凭证三者等价。
  * WebSocket 鉴权失败时先完成升级再以 4401 / 4403 关闭，让客户端拿到可读的原因，而不是一个笼统的握手失败。
  */
@@ -20,6 +21,8 @@ import { createDbPlayerDirectory, type PlayerDirectory } from "./db-client.js";
 import { createFileGrantStore, DeviceLogin, type DeviceGrantStore } from "./device-login.js";
 import { createDeviceRoutes } from "./device-routes.js";
 import { createDbActivitySource, type PlayerActivitySource } from "./activity-client.js";
+import { createHttpMapSource, type MapSource } from "./map-client.js";
+import { createMapRoutes } from "./map-routes.js";
 import { createPlayerActivityRoutes } from "./player-activity-routes.js";
 import { createPlayerRoutes } from "./player-routes.js";
 import { findRoute, HttpError, type Route } from "./routes.js";
@@ -53,6 +56,8 @@ export interface GatewayDeps {
   directory?: PlayerDirectory;
   /** 玩家行为记录数据源；缺省经 db-server 读取 */
   activity?: PlayerActivitySource;
+  /** 地图数据源；缺省按 config.mapUrl 创建，null 表示未开启地图 */
+  map?: MapSource | null;
   grantStore?: DeviceGrantStore;
   log?: (message: string) => void;
 }
@@ -130,6 +135,11 @@ export function startGateway(config: GatewayConfig, deps: GatewayDeps = {}): Pro
     ...createPlayerRoutes({ ...playerAuth, wechat, loginThrottle: new AuthThrottle(), log }),
     ...createDeviceRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), devices, startThrottle: new AuthThrottle(10, 60_000), log }),
     ...createPlayerActivityRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), activity: deps.activity ?? createDbActivitySource(config.dbUrl) }),
+    ...createMapRoutes({
+      ...playerAuth,
+      wechatEnabled: Boolean(wechat),
+      map: deps.map !== undefined ? deps.map : config.mapUrl ? createHttpMapSource(config.mapUrl) : null,
+    }),
   ];
 
   const server = http.createServer((request, response) => {

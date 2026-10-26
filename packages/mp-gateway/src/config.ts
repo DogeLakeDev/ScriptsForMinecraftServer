@@ -44,6 +44,11 @@ export interface GatewayConfig {
   dbUrl: string;
   /** 已授权桌面设备的持久化文件 */
   devicesFile: string;
+  /**
+   * 本机 bluemap 地图服务地址（小程序「地图」页的数据来源，见 map-client.ts）。
+   * null 表示服务器未开启地图：实例没有 configs/bluemap.json 且未指定 --map-url，所有 …/map/* 回 503。
+   */
+  mapUrl: string | null;
 }
 
 /** 微信小程序登录配置。使用场景：wechat.ts 调用 code2session。 */
@@ -68,6 +73,8 @@ export const HELP_TEXT = `用法: sfmc-mp-gateway --root <实例目录> [选项]
   --trust-proxy         信任反向代理的 X-Forwarded-For
   --wx-appid <id>       微信小程序 AppId（SFMC_MP_WX_APPID）；AppSecret 只读环境变量 SFMC_MP_WX_SECRET
   --db-url <url>        本机 db-server 地址（SFMC_MP_DB_URL），默认读取 configs/db_config.json 的 db_port
+  --map-url <url>       本机 bluemap 地图服务地址（SFMC_MP_MAP_URL），默认读取 configs/bluemap.json 的 port；
+                        该文件不存在时视为未开启地图
   -h, --help            显示帮助
 `;
 
@@ -151,6 +158,32 @@ function resolveDbUrl(root: string): string {
   return `http://127.0.0.1:${port}`;
 }
 
+/** bluemap 地图服务默认端口（与 bluemap configs-default/bluemap.json 的缺省值一致） */
+const DEFAULT_MAP_PORT = 5120;
+
+/**
+ * 推导本机 bluemap 地图服务地址。
+ * 使用场景：未显式指定 --map-url 时，读取实例 configs/bluemap.json 的 port（地图服务默认只监听 127.0.0.1）。
+ * 文件不存在或不是合法 JSON 时返回 null，表示该实例没有开启地图；port 缺失或非法时用默认端口，与地图服务的缺省行为一致。
+ */
+export function resolveMapUrl(root: string): string | null {
+  let text: string;
+  try {
+    text = fs.readFileSync(path.join(root, "configs", "bluemap.json"), "utf8");
+  } catch {
+    return null;
+  }
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  let parsed: { port?: unknown };
+  try {
+    parsed = JSON.parse(text) as { port?: unknown };
+  } catch {
+    return null;
+  }
+  const port = Number(parsed?.port);
+  return `http://127.0.0.1:${Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_MAP_PORT}`;
+}
+
 /**
  * 解析命令行与环境变量。
  * 返回 null 表示用户只请求了帮助；参数不合法时抛出错误，由 main.ts 打印后退出。
@@ -170,6 +203,7 @@ export function parseGatewayConfig(argv: string[], env: NodeJS.ProcessEnv): Gate
       "trust-proxy": { type: "boolean" },
       "wx-appid": { type: "string" },
       "db-url": { type: "string" },
+      "map-url": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     strict: true,
@@ -206,6 +240,7 @@ export function parseGatewayConfig(argv: string[], env: NodeJS.ProcessEnv): Gate
   const wxAppSecret = (env.SFMC_MP_WX_SECRET ?? "").trim();
   if (Boolean(wxAppId) !== Boolean(wxAppSecret)) throw new Error("微信登录需要同时配置 AppId（--wx-appid / SFMC_MP_WX_APPID）与 AppSecret（SFMC_MP_WX_SECRET）");
   const dbUrl = (values["db-url"] ?? env.SFMC_MP_DB_URL ?? "").trim().replace(/\/+$/, "") || resolveDbUrl(root);
+  const mapUrl = (values["map-url"] ?? env.SFMC_MP_MAP_URL ?? "").trim().replace(/\/+$/, "") || resolveMapUrl(root);
 
   return {
     root,
@@ -223,5 +258,6 @@ export function parseGatewayConfig(argv: string[], env: NodeJS.ProcessEnv): Gate
     sessionSecret: loadOrCreateSessionSecret(tokenFile),
     dbUrl,
     devicesFile: path.join(root, ".sfmc", "mp-gateway-devices.json"),
+    mapUrl,
   };
 }

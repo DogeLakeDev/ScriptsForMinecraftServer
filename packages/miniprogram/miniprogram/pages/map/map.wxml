@@ -1,0 +1,68 @@
+<!-- 玩家端「地图」：有地图时整页为画布，图层开关、缩放与定位按钮、选中信息浮在画布上；其余状态显示占位 -->
+<view wx:if="{{!configured}}" class="page with-tabbar">
+  <view class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-title">尚未配置服务器地址</view>
+      <view class="callout-text">请在 core/server.ts 的 HOME_SERVER.endpoint 填写 mp-gateway 地址后重新编译。</view>
+    </view>
+  </view>
+</view>
+
+<view wx:elif="{{status === 'ready'}}" class="map-root">
+  <canvas
+    type="2d"
+    id="map"
+    class="map-canvas"
+    disable-scroll
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+    bindtouchcancel="onTouchEnd"
+  ></canvas>
+
+  <view class="map-top">
+    <view class="chips">
+      <view class="chip map-chip {{showPlayers ? 'active' : ''}}" bindtap="togglePlayers">
+        <text class="i i-sm i-users"></text>玩家 {{onlineCount}}
+      </view>
+      <view class="chip map-chip {{showRegions ? 'active' : ''}}" bindtap="toggleRegions">
+        <text class="i i-sm i-layers"></text>区域与领地
+      </view>
+    </view>
+    <view wx:if="{{stale}}" class="badge tone-warning map-stale">玩家位置已停止更新</view>
+  </view>
+
+  <view class="map-tools">
+    <view class="map-tool" hover-class="hover" bindtap="zoomIn"><text class="i i-plus"></text></view>
+    <view class="map-tool" hover-class="hover" bindtap="zoomOut"><text class="i i-minus"></text></view>
+    <view class="map-tool" hover-class="hover" bindtap="resetView"><text class="i i-globe"></text></view>
+    <view wx:if="{{canLocate}}" class="map-tool" hover-class="hover" bindtap="locateMe"><text class="i i-user"></text></view>
+  </view>
+
+  <view class="map-bottom">
+    <view wx:if="{{selectedTitle}}" class="map-card">
+      <view class="list-main">
+        <view class="b truncate">{{selectedTitle}}</view>
+        <view class="list-sub num">{{selectedDesc}}</view>
+      </view>
+      <view class="btn btn-sm btn-icon btn-ghost" hover-class="hover" bindtap="clearSelection"><text class="i i-x"></text></view>
+    </view>
+    <view wx:if="{{otherDimensions.length}}" class="map-card small">
+      <text class="muted">不在主世界：</text>
+      <text wx:for="{{otherDimensions}}" wx:key="name" class="map-other">{{item.name}}（{{item.dimension}}）</text>
+    </view>
+  </view>
+</view>
+
+<view wx:else class="page with-tabbar">
+  <view class="surface">
+    <empty-state wx:if="{{status === 'loading'}}" icon="loader" title="正在加载地图" />
+    <empty-state wx:elif="{{status === 'unrendered'}}" icon="image" title="地图还没渲染好" desc="{{renderMessage}}">
+      <view class="btn btn-sm map-retry" hover-class="hover" bindtap="retry"><text class="i i-sm i-refresh"></text>刷新</view>
+    </empty-state>
+    <empty-state wx:else icon="warning" title="地图暂不可用" desc="{{errorText}}">
+      <view class="btn btn-sm map-retry" hover-class="hover" bindtap="retry"><text class="i i-sm i-refresh"></text>重试</view>
+    </empty-state>
+  </view>
+</view>

@@ -79,12 +79,15 @@ export interface PlayerApi {
   revokeDevice(id: string): Promise<boolean>;
 }
 
+/** 携带玩家会话调用网关接口的函数 */
+export type SessionCall = <T>(method: "GET" | "POST", path: string, data?: Record<string, unknown>) => Promise<T>;
+
 /**
- * 创建某个网关的玩家端接口。
- * 使用场景：玩家端用 homePlayerApi()；管理端设备页按当前实例档案的地址创建。
+ * 创建携带玩家会话的网关调用：会话令牌失效（401）时清掉令牌、重新登录并重试一次。
+ * 使用场景：本文件的玩家端接口与 core/map-api.ts 的地图接口共用（DRY）。
  */
-export function createPlayerApi(endpoint: string): PlayerApi {
-  const call = async <T>(method: "GET" | "POST", path: string, data?: Record<string, unknown>): Promise<T> => {
+export function createSessionCall(endpoint: string): SessionCall {
+  return async <T>(method: "GET" | "POST", path: string, data?: Record<string, unknown>): Promise<T> => {
     const send = async () => requestJson<T>({ url: `${endpoint}${path}`, method, data, token: await ensurePlayerToken(endpoint) });
     try {
       return await send();
@@ -94,6 +97,14 @@ export function createPlayerApi(endpoint: string): PlayerApi {
       return send();
     }
   };
+}
+
+/**
+ * 创建某个网关的玩家端接口。
+ * 使用场景：玩家端用 homePlayerApi()；管理端设备页按当前实例档案的地址创建。
+ */
+export function createPlayerApi(endpoint: string): PlayerApi {
+  const call = createSessionCall(endpoint);
   return {
     endpoint,
     me: () => call<PlayerMe>("GET", "/player/me"),

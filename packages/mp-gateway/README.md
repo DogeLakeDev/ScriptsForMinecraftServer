@@ -29,6 +29,10 @@ node packages/mp-gateway/dist/main.js --root /srv/sfmc
 | `POST …/player/bind/request` | 玩家会话：申请 6 位绑定码，玩家在游戏内输入 `/c:bind` 后发送该码 |
 | `POST …/player/unbind` | 玩家会话：解除微信绑定 |
 | `GET …/player/activity` | 玩家会话：本人的行为日志记录（`limit` / `offset` / `eventType` / `eventTypePrefix` / `from` / `to` / `keyword` 等筛选），只返回微信绑定账号的记录；未绑定时 `bound` 为 false |
+| `GET …/map/meta` | 玩家会话：地图元数据（瓦片层级范围、图片格式、世界边界、中心点、渲染状态）；还没渲染时 `rendered` 为 false |
+| `GET …/map/players` | 玩家会话：所有在线玩家的位置 `{ players, updatedAt, stale }`；游戏服务器上报中断超过 10 秒时 `players` 为空、`stale` 为 true |
+| `GET …/map/regions` | 玩家会话：区域与领地范围 `{ regions }` |
+| `GET …/map/tiles/{zoom}/{x}/{z}.{png\|jpg}` | 地图瓦片图片，**公开只读**（canvas 加载网络图片无法带鉴权头）；参数必须是整数 |
 | `POST …/auth/device/start` / `poll` | 桌面端“用小程序登录”：发起并轮询（公开，限流） |
 | `POST …/auth/device/describe` / `approve` / `deny` | 管理员在小程序扫码或输入短码后查看、批准、拒绝 |
 | `GET …/auth/devices`、`POST …/auth/devices/revoke` | 管理员查看与撤销已授权的桌面设备 |
@@ -46,6 +50,10 @@ node packages/mp-gateway/dist/main.js --root /srv/sfmc
 3. 桌面设备凭证：管理员在小程序批准后签发，有效期 30 天；每次连接都现查授权人是否仍为等级 3。授权记录保存在 `<root>/.sfmc/mp-gateway-devices.json`（只存摘要）。
 
 会话签名密钥首次启动时生成，保存在 `<root>/.sfmc/mp-gateway.json` 的 `sessionSecret` 字段；删除该字段会使所有玩家会话与设备凭证失效。
+
+## 地图
+
+`/map/*` 只读转发实例上的 bluemap 地图服务（默认 `127.0.0.1:5120`）。地址默认读取 `configs/bluemap.json` 的 `port`，也可用 `--map-url` / `SFMC_MP_MAP_URL` 指定；实例没有该文件时视为未开启地图，所有 `/map/*` 返回 503“服务器未开启地图”。网关只调用地图服务的 GET 接口，不会转发它没有鉴权的写接口（上报玩家、上报区域、触发渲染）。
 
 ## Nginx 示例
 
@@ -67,3 +75,4 @@ location /sfmc/ {
 
 - socket 合法域名：`wss://example.com`
 - request 合法域名：`https://example.com`（世界包上传、微信登录与玩家接口）
+- downloadFile 合法域名：`https://example.com`（地图页用 canvas 加载瓦片图片）

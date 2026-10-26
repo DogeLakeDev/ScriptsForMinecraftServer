@@ -19,19 +19,30 @@ export interface RouteContext {
 /** 一条 HTTP 路由 */
 export interface Route {
   method: "GET" | "POST" | "PUT";
-  /** 路径结尾，例如 "/player/me" */
+  /** 路径结尾，例如 "/player/me"；设置了 pattern 时只用于多条命中时的优先级比较 */
   suffix: string;
+  /**
+   * 可选的路径正则，用于路径里带参数的路由（例如地图瓦片 …/map/tiles/{zoom}/{x}/{z}.png）。
+   * 设置后改用它判断是否命中，正则应以 `$` 结尾以保持“按结尾匹配”的约定。
+   * 当前使用场景：map-routes.ts 的瓦片路由。
+   */
+  pattern?: RegExp;
   handle(context: RouteContext): Promise<void> | void;
 }
 
+/** 路由是否命中路径：有 pattern 用正则，否则按 suffix 结尾匹配 */
+function routeMatches(route: Route, pathname: string): boolean {
+  return route.pattern ? route.pattern.test(pathname) : pathname.endsWith(route.suffix);
+}
+
 /**
- * 查找匹配的路由：方法相同且路径以 suffix 结尾（suffix 以 "/" 开头，因此天然落在路径边界上）。
+ * 查找匹配的路由：方法相同且路径以 suffix 结尾（suffix 以 "/" 开头，因此天然落在路径边界上），或命中 pattern。
  * 多条都匹配时取 suffix 最长的一条，避免 "/devices" 抢走 "/auth/devices" 之类的更具体路由。
  */
 export function findRoute(routes: readonly Route[], method: string, pathname: string): Route | undefined {
   let best: Route | undefined;
   for (const route of routes) {
-    if (route.method !== method || !pathname.endsWith(route.suffix)) continue;
+    if (route.method !== method || !routeMatches(route, pathname)) continue;
     if (!best || route.suffix.length > best.suffix.length) best = route;
   }
   return best;

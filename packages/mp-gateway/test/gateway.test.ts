@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
@@ -13,9 +14,10 @@ import WebSocket from "ws";
 import { encodeDeviceLoginLink, parseDeviceLoginLink } from "@sfmc-bds/management";
 import { createDbActivitySource, type PlayerActivityPage, type PlayerActivitySource } from "../src/activity-client.js";
 import { authenticateChain, deviceAuthenticator, playerSessionAuthenticator, staticTokenAuthenticator } from "../src/authenticators.js";
-import type { GatewayConfig } from "../src/config.js";
+import { resolveMapUrl, type GatewayConfig } from "../src/config.js";
 import type { PlayerAccount, PlayerDirectory } from "../src/db-client.js";
 import { DeviceLogin, type DeviceGrant, type DeviceGrantStore } from "../src/device-login.js";
+import { createHttpMapSource, MAP_PLAYERS_STALE_MS, parseUnminedProperties, type MapSource } from "../src/map-client.js";
 import { HttpError } from "../src/routes.js";
 import { startGateway, type RunningGateway } from "../src/server.js";
 import { PLAYER_SESSION_TTL_MS, signPlayerSession, verifyPlayerSession } from "../src/session-token.js";
@@ -85,8 +87,11 @@ const fakeWechat: WechatIdentity = {
   },
 };
 
-/** 启动一个测试网关，返回基础地址与依赖；activity 缺省时使用指向不可达地址的 db-server 实现 */
-async function launch(options: { wechat?: WechatIdentity | null; activity?: PlayerActivitySource } = {}) {
+/**
+ * 启动一个测试网关，返回基础地址与依赖。
+ * activity 缺省时使用指向不可达地址的 db-server 实现；map 缺省为 null（未开启地图）。
+ */
+async function launch(options: { wechat?: WechatIdentity | null; activity?: PlayerActivitySource; map?: MapSource | null } = {}) {
   const directory = memoryDirectory();
   const config: GatewayConfig = {
     root: workDir,
@@ -104,12 +109,14 @@ async function launch(options: { wechat?: WechatIdentity | null; activity?: Play
     sessionSecret: SECRET,
     dbUrl: "http://127.0.0.1:1",
     devicesFile: path.join(workDir, "devices.json"),
+    mapUrl: null,
   };
   const gateway: RunningGateway = await startGateway(config, {
     wechat: options.wechat === undefined ? fakeWechat : options.wechat,
     directory,
     grantStore: memoryStore(),
     log: () => undefined,
+    map: options.map ?? null,
     ...(options.activity ? { activity: options.activity } : {}),
   });
   const address = gateway.server.address();
@@ -353,4 +360,176 @@ test("设备登录：拒绝后桌面端轮询得到 denied，过期请求不能�
   now += 5 * 60 * 1000 + 1;
   assert.throws(() => devices.approve({ deviceId: second.deviceId }, { openid: "wx", name: "Admin" }), (error: unknown) => error instanceof HttpError && error.status === 404);
   assert.deepEqual(devices.poll(second.deviceId, second.pollSecret), { status: "expired" });
+});
+
+/** 假地图服务里的 uNmINeD 属性脚本（区域 -1..0，层级 -2..3） */
+const FAKE_PROPERTIES = `UnminedMapProperties = { worldName: "OrdinaryWorld", minZoom: -2, maxZoom: 3, defaultZoom: 1, imageFormat: "png", minRegionX: -1, minRegionZ: -1, maxRegionX: 0, maxRegionZ: 0, centerX: 10, centerZ: -20 };`;
+
+/** 假瓦片内容 */
+const FAKE_TILE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+
+/**
+ * 启动一个假的 bluemap 地图服务，记录收到的每个请求（方法 + 路径）。
+ * 只认 /api/status、/api/players、/api/regions、属性脚本与一张瓦片 tile.-3.5（目录 -1/0），其余 404。
+ */
+async function launchFakeMap() {
+  const requests: string[] = [];
+  const server = http.createServer((request, response) => {
+    requests.push(`${request.method} ${request.url}`);
+    const json = (body: unknown) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(body));
+    };
+    if (request.url === "/api/status") return json({ ok: true, phase: "done", message: "渲染完成" });
+    if (request.url === "/api/players") {
+      return json({ players: [{ name: "Steve", dimension: "minecraft:overworld", x: 1, y: 64, z: -2, yaw: 90, extra: "drop" }, { name: "bad" }], updatedAt: Date.now() });
+    }
+    if (request.url === "/api/regions") {
+      return json({ regions: [{ id: "a1", kind: "land", name: "家", dimension: "minecraft:overworld", minX: 0, minZ: 0, maxX: 15, maxZ: 15 }, { id: "x", kind: "other" }] });
+    }
+    if (request.url === "/unmined/unmined.map.properties.js") {
+      response.writeHead(200, { "content-type": "text/javascript" });
+      return response.end(FAKE_PROPERTIES);
+    }
+    if (request.url === "/unmined/tiles/zoom.0/-1/0/tile.-3.5.png") {
+      response.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=60" });
+      return response.end(FAKE_TILE);
+    }
+    response.writeHead(404);
+    response.end("not found");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  return { requests, url: `http://127.0.0.1:${address.port}`, close: () => new Promise<void>((done) => server.close(() => done())) };
+}
+
+test("HTTP 地图：meta / players / regions 需要会话并只透出白名单字段；瓦片公开转发；只向地图服务发 GET", async () => {
+  const fakeMap = await launchFakeMap();
+  const { gateway, base } = await launch({ map: createHttpMapSource(fakeMap.url) });
+  try {
+    assert.equal((await call(`${base}/map/meta`)).status, 401);
+    assert.equal((await call(`${base}/map/players`)).status, 401);
+    assert.equal((await call(`${base}/map/regions`)).status, 401);
+    const token = await login(base, "a");
+
+    const meta = await call(`${base}/map/meta`, { token });
+    assert.equal(meta.status, 200);
+    assert.deepEqual(meta.data, {
+      rendered: true,
+      phase: "done",
+      message: "渲染完成",
+      minZoom: -2,
+      maxZoom: 3,
+      defaultZoom: 1,
+      imageFormat: "png",
+      tileSize: 256,
+      bounds: { minX: -512, minZ: -512, maxX: 512, maxZ: 512 },
+      centerX: 10,
+      centerZ: -20,
+      worldName: "OrdinaryWorld",
+      dimension: "overworld",
+    });
+
+    const players = await call(`${base}/map/players`, { token });
+    assert.deepEqual(players.data.players, [{ name: "Steve", dimension: "minecraft:overworld", x: 1, y: 64, z: -2, yaw: 90 }]);
+    assert.equal(players.data.stale, false);
+
+    const regions = await call(`${base}/map/regions`, { token });
+    assert.deepEqual(regions.data, { regions: [{ id: "a1", kind: "land", name: "家", dimension: "minecraft:overworld", minX: 0, minZ: 0, maxX: 15, maxZ: 15 }] });
+
+    // 瓦片不带会话也能取；负坐标的目录分组向下取整（-3 → -1）
+    const tile = await fetch(`${base}/map/tiles/0/-3/5.png`);
+    assert.equal(tile.status, 200);
+    assert.equal(tile.headers.get("content-type"), "image/png");
+    assert.equal(tile.headers.get("cache-control"), "public, max-age=60");
+    assert.deepEqual(Buffer.from(await tile.arrayBuffer()), FAKE_TILE);
+    assert.equal((await fetch(`${base}/map/tiles/0/7/7.png`)).status, 404);
+
+    assert.ok(fakeMap.requests.every((line) => line.startsWith("GET ")));
+  } finally {
+    await gateway.close();
+    await fakeMap.close();
+  }
+});
+
+test("HTTP 地图：瓦片参数非整数、扩展名不在白名单或企图路径穿越时为 400，且不访问地图服务", async () => {
+  const fakeMap = await launchFakeMap();
+  const { gateway, base } = await launch({ map: createHttpMapSource(fakeMap.url) });
+  try {
+    const bad = ["/map/tiles/0/1.5/2.png", "/map/tiles/a/1/2.png", "/map/tiles/0/1/2.gif", "/map/tiles/0/1/2.png.js", "/map/tiles/0/1/..%2F..%2Fapi%2Fstatus.png", "/map/tiles/123/1/2.png"];
+    for (const pathname of bad) assert.equal((await fetch(`${base}${pathname}`)).status, 400, pathname);
+    // 点段会被 URL 规范化掉，落不到任何路由
+    assert.equal((await fetch(`${base}/map/tiles/0/../../api/status`)).status, 404);
+    assert.equal(fakeMap.requests.length, 0);
+  } finally {
+    await gateway.close();
+    await fakeMap.close();
+  }
+});
+
+test("HTTP 地图：未开启地图时为 503；地图服务连不上时为 503；未启用微信登录时需会话的接口为 503", async () => {
+  const disabled = await launch({ map: null });
+  try {
+    const token = await login(disabled.base, "a");
+    const meta = await call(`${disabled.base}/map/meta`, { token });
+    assert.equal(meta.status, 503);
+    assert.equal(meta.data.error, "服务器未开启地图");
+    assert.equal((await fetch(`${disabled.base}/map/tiles/0/0/0.png`)).status, 503);
+  } finally {
+    await disabled.gateway.close();
+  }
+
+  const down = await launch({ map: createHttpMapSource("http://127.0.0.1:1") });
+  try {
+    const token = await login(down.base, "a");
+    assert.equal((await call(`${down.base}/map/players`, { token })).status, 503);
+    assert.equal((await fetch(`${down.base}/map/tiles/0/0/0.png`)).status, 503);
+  } finally {
+    await down.gateway.close();
+  }
+
+  const noWechat = await launch({ wechat: null, map: createHttpMapSource("http://127.0.0.1:1") });
+  try {
+    assert.equal((await call(`${noWechat.base}/map/meta`)).status, 503);
+  } finally {
+    await noWechat.gateway.close();
+  }
+});
+
+test("地图数据源：上报中断时返回空列表并标记 stale；未渲染时 rendered 为 false", async () => {
+  const now = 1_000_000;
+  const respond = (routes: Record<string, { status: number; body: string }>) =>
+    (async (url: string | URL | Request) => {
+      const hit = routes[new URL(String(url)).pathname];
+      return new Response(hit?.body ?? "not found", { status: hit?.status ?? 404 });
+    }) as typeof fetch;
+  const playersAt = (updatedAt: number) =>
+    createHttpMapSource("http://map", respond({ "/api/players": { status: 200, body: JSON.stringify({ players: [{ name: "A", dimension: "d", x: 0, y: 0, z: 0, yaw: 0 }], updatedAt }) } }), () => now);
+  assert.equal((await playersAt(now - 1000).players()).players.length, 1);
+  assert.deepEqual(await playersAt(now - MAP_PLAYERS_STALE_MS - 1).players(), { players: [], updatedAt: now - MAP_PLAYERS_STALE_MS - 1, stale: true });
+  assert.equal((await playersAt(0).players()).stale, true);
+
+  const unrendered = createHttpMapSource("http://map", respond({ "/api/status": { status: 200, body: JSON.stringify({ phase: "idle", message: "地图未渲染" }) } }));
+  const meta = await unrendered.meta();
+  assert.equal(meta.rendered, false);
+  assert.equal(meta.bounds, null);
+  assert.equal(meta.message, "地图未渲染");
+
+  assert.equal(parseUnminedProperties("minZoom: 0"), null);
+  assert.equal(parseUnminedProperties(FAKE_PROPERTIES.replace("defaultZoom: 1, ", ""))?.defaultZoom, null);
+  assert.equal(parseUnminedProperties(FAKE_PROPERTIES.replace('"png"', '"jpeg"'))?.imageFormat, "jpg");
+});
+
+test("地图地址：读取 configs/bluemap.json 的 port（容忍 BOM），文件缺失或不是 JSON 时视为未开启", () => {
+  const root = fs.mkdtempSync(path.join(workDir, "map-root-"));
+  assert.equal(resolveMapUrl(root), null);
+  fs.mkdirSync(path.join(root, "configs"));
+  const file = path.join(root, "configs", "bluemap.json");
+  fs.writeFileSync(file, "\ufeff" + JSON.stringify({ port: 6123 }));
+  assert.equal(resolveMapUrl(root), "http://127.0.0.1:6123");
+  fs.writeFileSync(file, JSON.stringify({ port: "oops" }));
+  assert.equal(resolveMapUrl(root), "http://127.0.0.1:5120");
+  fs.writeFileSync(file, "{not json");
+  assert.equal(resolveMapUrl(root), null);
 });

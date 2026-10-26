@@ -207,8 +207,9 @@ function tablerSvg(table, outlines, iconsBlock, name) {
  * theme.json 里新增标签图标时在这里登记。
  */
 const TAB_ICONS = {
-  // 原生标签栏归玩家端：首页 / 排行 / 我的。管理端的底部导航是 components/admin-nav，用遮罩图标，不在这里。
+  // 原生标签栏归玩家端：首页 / 地图 / 排行 / 我的。管理端的底部导航是 components/admin-nav，用遮罩图标，不在这里。
   home: "house",
+  map: "map-trifold",
   rank: "trophy",
   me: "user-circle",
 };

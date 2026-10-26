@@ -39,6 +39,7 @@ if (config.wechat) {
 } else {
   console.log("  微信登录  未启用（设置 SFMC_MP_WX_APPID 与 SFMC_MP_WX_SECRET 后，玩家端与按角色授权管理端才可用）");
 }
+console.log(config.mapUrl ? `  地图服务  ${config.mapUrl}` : "  地图服务  未开启（实例没有 configs/bluemap.json，可用 --map-url 指定）");
 if (config.host !== "127.0.0.1" && config.host !== "localhost" && config.host !== "::1") {
   console.log("  注意：网关直接监听非本机地址。小程序正式版只能访问 https/wss，请在前面配置 TLS 反向代理。");
 }
