@@ -1,5 +1,15 @@
 # @sfmc-bds/db-server
 
+## 0.8.1
+
+### Patch Changes
+
+- 2c10360: 运行指标新增 CPU 占用率：数据服务在资源采集时对累计 CPU 时间求差，以整机全部逻辑核为 100%，通过 `host.cpu.usedPercent` 与 `processes.*.cpuPercent` 返回，并以 `hostCpuPercent`、`bdsCpuPercent`、`dbCpuPercent`、`partsCpuPercent` 写入资源历史供曲线使用。管理协议类型同步新增这些可选字段；旧数据服务不返回时客户端回退显示累计 CPU 秒数。
+- 336a7aa: 修复 `/reload` 后模块初始化偶发「事务繁忙」：旧脚本实例刚开启、来不及提交或回滚的交互式事务会话会占住 db-server 全局事务槽直到空闲超时（15 秒），新实例模块 init 的读写因此失败。db-server 新增 `POST /api/sfmc/db/tx/reap`（只中止鉴权身份所属模块的会话，返回 `aborted` 数量）；SDK 宿主在 `ModuleRegistry.bootAll()` 之前对各模块调用一次回收，失败只记日志、不阻断启动（兼容未升级的 db-server）。
+- Updated dependencies [336a7aa]
+  - @sfmc-bds/sdk@0.7.1
+  - @sfmc-bds/bds-tools@0.3.2
+
 ## 0.8.0
 
 ### Minor Changes
