@@ -7,6 +7,8 @@ export interface ProcessResources {
   running: boolean;
   memoryMb: number | null;
   cpuSeconds: number | null;
+  /** 最近一段时间的 CPU 占用率（整机为 100%）。由 status 路由的 ProcessCpuMeter 补上，采集函数本身不填。 */
+  cpuPercent?: number | null;
 }
 
 export async function collectProcessResources(pid: number, running: boolean): Promise<ProcessResources> {

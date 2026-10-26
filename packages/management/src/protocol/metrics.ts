@@ -14,6 +14,11 @@ export interface ProcessResources {
   memoryMb: number | null;
   /** 累计 CPU 秒数；不是 CPU 百分比。 */
   cpuSeconds: number | null;
+  /**
+   * 最近一段时间的 CPU 占用率（0–100，以整机全部逻辑核为 100%）。
+   * 使用场景：资源侧栏的进程行与 CPU 曲线。旧数据服务没有该字段；null 表示还没有基线或没采到。
+   */
+  cpuPercent?: number | null;
 }
 /**
  * 除 BDS 和数据服务之外、这个实例自己登记过的进程。
@@ -36,6 +41,15 @@ export interface ResourceSample {
    * 键缺省表示当时没采到，不是 0。
    */
   partsMb?: Record<string, number>;
+  /**
+   * 整机与各进程的 CPU 占用率（0–100，以整机全部逻辑核为 100%）。
+   * 使用场景：CPU 曲线。旧采样没有这些字段；null 或键缺省表示当时没采到，不是 0。
+   * partsCpuPercent 的键与 partsMb 一致。
+   */
+  hostCpuPercent?: number | null;
+  dbCpuPercent?: number | null;
+  bdsCpuPercent?: number | null;
+  partsCpuPercent?: Record<string, number>;
 }
 export interface MetricsResult {
   fresh: boolean;
@@ -44,7 +58,8 @@ export interface MetricsResult {
   history: MetricsSample[];
   host: {
     memory: { totalMb: number; usedMb: number; usedPercent: number };
-    cpu: { cores: number; model: string };
+    /** usedPercent：整机 CPU 占用率（0–100）；旧数据服务没有该字段，刚启动还没有基线时为 null。 */
+    cpu: { cores: number; model: string; usedPercent?: number | null };
   } | null;
   processes: { db: ProcessResources; bds: ProcessResources | null; parts?: TrackedProcess[] } | null;
   resourcesUpdatedAt: number | null;

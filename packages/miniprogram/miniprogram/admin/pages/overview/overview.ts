@@ -1,13 +1,13 @@
 /**
  * overview — 实例状态（首页）
  *
- * 使用场景：打开小程序的默认页。自上而下：实例切换头 → 状态条（运行服务 / 在线玩家 / TPS / 主机内存）
- * → 服务列表（启动 / 重启 / 停止）→ 需要关注（告警 + 任务）→ 运行趋势（含各进程内存）→ 实例详情。
+ * 使用场景：打开小程序的默认页。自上而下：实例切换头 → 状态条（在线玩家 / TPS / CPU / 主机内存）
+ * → 服务列表（启动 / 重启 / 停止）→ 需要关注（告警 + 任务）→ 运行趋势（含各进程 CPU 与内存）→ 实例详情。
  * 判定规则与桌面端 OverviewPage / MetricsPanel 一致：TPS 低于 19.5 标为警告；采样不新鲜时不显示 TPS 与在线人数。
  */
 import { guard, submit } from "../../../core/actions";
 import { switchAdminTab } from "../../../core/admin-nav";
-import { duration, formatMemoryMb, hostLabel } from "../../../core/format";
+import { duration, formatCpuPercent, formatMemoryMb, hostLabel } from "../../../core/format";
 import { connectionView, consoleFocus, unwatchSession, watchSession } from "../../../core/page";
 import { activeTasks, session, type SessionState } from "../../../core/session";
 import { asMetricSpan, buildTrend, emptyTrend, type MetricSpan } from "../../core/trend";
@@ -58,23 +58,20 @@ interface MemoryRowView {
   key: string;
   label: string;
   value: string;
-  /** 累计 CPU、已停止或资源未知 */
+  /** CPU 占用率（新数据服务）、累计 CPU（旧数据服务）、已停止或资源未知 */
   detail: string;
 }
 
+/** 资源清单在不支持指标时的占位，字段与 memoryPanel 的返回值一致。 */
+const EMPTY_MEMORY_PANEL = { show: false, host: "—", usedPercent: 0, hostNote: false, total: "", cpu: "—", cpuPercent: 0, cpuNote: "", rows: [] as MemoryRowView[] };
+
 /**
- * 与桌面端 MetricsPanel 的内存侧栏同一套数字。
- * 使用场景：总览「运行趋势」里内存图上方的实时清单。
+ * 与桌面端 MetricsPanel 的资源侧栏同一套数字（主机内存、主机 CPU、各进程内存与 CPU）。
+ * 使用场景：总览「运行趋势」里 CPU / 内存图上方的实时清单。
  */
-function memoryPanel(metrics: MetricsResult | null, reachable: boolean): {
-  show: boolean;
-  host: string;
-  usedPercent: number;
-  hostNote: boolean;
-  total: string;
-  rows: MemoryRowView[];
-} {
+function memoryPanel(metrics: MetricsResult | null, reachable: boolean): typeof EMPTY_MEMORY_PANEL {
   const host = reachable ? metrics?.host?.memory ?? null : null;
+  const hostCpu = reachable ? metrics?.host?.cpu ?? null : null;
   const processes = reachable ? metrics?.processes : null;
   const rows: Array<{ key: string; label: string; process: ProcessResources | null }> = [
     { key: "bds", label: "BDS", process: processes?.bds ?? null },
@@ -83,18 +80,29 @@ function memoryPanel(metrics: MetricsResult | null, reachable: boolean): {
   for (const part of processes?.parts ?? []) rows.push({ key: part.key, label: part.label, process: part });
   let sum = 0;
   let any = false;
+  let cpuSum = 0;
+  let anyCpu = false;
   for (const row of rows) {
+    const cpu = row.process?.cpuPercent;
+    if (typeof cpu === "number") {
+      cpuSum += cpu;
+      anyCpu = true;
+    }
     const value = row.process?.memoryMb;
     if (typeof value !== "number") continue;
     sum += value;
     any = true;
   }
+  const cpuPercent = hostCpu?.usedPercent ?? null;
   return {
     show: true,
     host: host ? `${formatMemoryMb(host.usedMb)} / ${formatMemoryMb(host.totalMb)}` : "—",
     usedPercent: host ? Math.max(0, Math.min(100, host.usedPercent)) : 0,
     hostNote: Boolean(host),
     total: any ? formatMemoryMb(sum) : "",
+    cpu: formatCpuPercent(cpuPercent),
+    cpuPercent: cpuPercent === null ? 0 : Math.max(0, Math.min(100, cpuPercent)),
+    cpuNote: hostCpu ? `${hostCpu.cores} 核${anyCpu ? ` · SFMC 合计 ${formatCpuPercent(Math.min(100, cpuSum))}` : ""}` : "",
     rows: rows.map((row) => ({
       key: row.key,
       label: row.label,
@@ -104,10 +112,11 @@ function memoryPanel(metrics: MetricsResult | null, reachable: boolean): {
   };
 }
 
-/** 进程行下方的说明，文案与桌面端一致。 */
+/** 进程行下方的说明，文案与桌面端 processDetail 一致：有占用率时显示 CPU 百分比，否则沿用累计 CPU 秒数。 */
 function memoryDetail(process: ProcessResources | null): string {
   if (!process) return "资源未知";
   if (!process.running) return "已停止";
+  if (typeof process.cpuPercent === "number") return `CPU ${formatCpuPercent(process.cpuPercent)}`;
   return `累计 CPU ${process.cpuSeconds === null ? "未知" : `${process.cpuSeconds.toFixed(1)} s`}`;
 }
 
@@ -116,13 +125,13 @@ function render(state: SessionState) {
   const now = Date.now();
   const handshake = state.handshake;
   const stale = state.status !== "online";
-  const running = state.services.filter((row) => row.running).length;
   const active = activeTasks(state);
   const metrics = metricsState.data;
   const reachable = !stale && !metricsState.failed && now - metricsState.receivedAt < METRICS_STALE_MS && Boolean(metrics);
   const fresh = reachable && Boolean(metrics?.fresh);
   const tps = fresh ? metrics?.current?.tps ?? null : null;
   const memory = reachable ? metrics?.host?.memory ?? null : null;
+  const cpu = reachable ? metrics?.host?.cpu.usedPercent ?? null : null;
   const snapshot = metricsState.players;
   const playersFresh = session.can("metrics")
     ? fresh
@@ -134,11 +143,10 @@ function render(state: SessionState) {
     ready: Boolean(handshake),
     root: handshake?.root ?? "",
     strip: {
-      running: stale ? "—" : String(running),
-      total: stale ? "" : ` / ${state.services.length}`,
       players: playersFresh ? String(onlineCount ?? "—") : "—",
       tps: tps === null ? "—" : tps.toFixed(2),
       tpsWarn: tps !== null && tps < TPS_WARN,
+      cpu: formatCpuPercent(cpu),
       memory: memory ? formatMemoryMb(memory.usedMb) : "—",
       memoryTotal: memory ? ` / ${formatMemoryMb(memory.totalMb)}` : "",
     },
@@ -148,7 +156,7 @@ function render(state: SessionState) {
     tasks: (active.length ? active : state.tasks).slice(0, 3).map((task) => taskView(task, now)),
     metricsSupported: session.can("metrics"),
     metricsNote: !session.can("metrics") ? "当前平台暂不支持运行指标" : !metrics ? "正在读取指标…" : !fresh ? metrics.note ?? "暂时没有新的采样" : "",
-    memoryPanel: session.can("metrics") ? memoryPanel(metrics, reachable) : { show: false, host: "—", usedPercent: 0, hostNote: false, total: "", rows: [] },
+    memoryPanel: session.can("metrics") ? memoryPanel(metrics, reachable) : EMPTY_MEMORY_PANEL,
     detail: handshake
       ? {
           platform: `SFMC ${handshake.platformVersion} ${hostLabel(handshake.host.os, handshake.host.arch)}`,

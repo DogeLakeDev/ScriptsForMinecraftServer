@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useDesktop } from "../app/desktop.js";
 import { PALETTES, useAppearance } from "../app/theme.js";
 import { fullTime } from "../lib/format.js";
-import { entityLines, memoryLines, scalarLine } from "../lib/metric-series.js";
-import { MetricChart } from "./MetricChart.js";
+import { cpuLines, entityLines, memoryLines, scalarLine } from "../lib/metric-series.js";
+import { MetricChart, type MetricAxis } from "./MetricChart.js";
 import { Segmented } from "./controls.js";
 import { EmptyState, Surface } from "./ui.js";
 
@@ -43,8 +43,10 @@ export function useRuntimeMetrics() {
           setFailed(false);
           if (!Array.isArray(value.resourceHistory) && value.host && typeof value.resourcesUpdatedAt === "number") {
             const partsMb: Record<string, number> = {};
+            const partsCpuPercent: Record<string, number> = {};
             for (const part of value.processes?.parts ?? []) {
               if (typeof part.memoryMb === "number") partsMb[part.key] = part.memoryMb;
+              if (typeof part.cpuPercent === "number") partsCpuPercent[part.key] = part.cpuPercent;
             }
             const point: ResourceSample = {
               recordedAt: value.resourcesUpdatedAt,
@@ -52,6 +54,10 @@ export function useRuntimeMetrics() {
               dbMb: value.processes?.db.memoryMb ?? null,
               bdsMb: value.processes?.bds?.memoryMb ?? null,
               ...(Object.keys(partsMb).length ? { partsMb } : {}),
+              hostCpuPercent: value.host.cpu.usedPercent ?? null,
+              dbCpuPercent: value.processes?.db.cpuPercent ?? null,
+              bdsCpuPercent: value.processes?.bds?.cpuPercent ?? null,
+              ...(Object.keys(partsCpuPercent).length ? { partsCpuPercent } : {}),
             };
             setLocalResources((current) => {
               const last = current.at(-1);
@@ -109,6 +115,37 @@ export const formatMemoryMb = (value: number | null | undefined) =>
 
 const memory = formatMemoryMb;
 
+/**
+ * 把 CPU 占用率格式化为 "12.3%"，缺失时显示 "—"。
+ * 使用场景：MetricsPanel 的 CPU 读数与侧栏、总览页顶部状态条的 CPU 格。
+ */
+export const formatCpuPercent = (value: number | null | undefined) =>
+  value === null || value === undefined ? "—" : `${value.toFixed(1)}%`;
+
+/**
+ * 进程行下方的说明：新数据服务给出占用率时显示 CPU 百分比；旧数据服务或尚无基线时沿用累计 CPU 秒数。
+ * 使用场景：MetricsPanel 资源侧栏的每个进程行。
+ */
+function processDetail(process: ProcessResources | null): string {
+  if (!process) return "资源未知";
+  if (!process.running) return "已停止";
+  if (typeof process.cpuPercent === "number") return `CPU ${formatCpuPercent(process.cpuPercent)}`;
+  return `累计 CPU ${process.cpuSeconds === null ? "未知" : `${process.cpuSeconds.toFixed(1)} s`}`;
+}
+
+/** 已采到的进程 CPU 占用率之和。缺数的进程不补 0；一个都没有时返回 null。 */
+function measuredCpuPercent(rows: Array<{ process: ProcessResources | null }>): number | null {
+  let sum = 0;
+  let any = false;
+  for (const row of rows) {
+    const value = row.process?.cpuPercent;
+    if (typeof value !== "number") continue;
+    sum += value;
+    any = true;
+  }
+  return any ? Math.min(100, sum) : null;
+}
+
 /** 侧栏里的一行进程。BDS 和数据服务始终占位，其余只在正在运行时出现。 */
 function memoryRows(processes: MetricsResult["processes"] | undefined, reachable: boolean): Array<{ key: string; label: string; process: ProcessResources | null }> {
   const rows: Array<{ key: string; label: string; process: ProcessResources | null }> = [
@@ -132,7 +169,16 @@ function measuredMemoryMb(rows: Array<{ process: ProcessResources | null }>): nu
   return any ? sum : null;
 }
 
-type MetricView = "tps" | "onlineCount" | "memory" | "entities";
+type MetricView = "tps" | "onlineCount" | "cpu" | "memory" | "entities";
+
+/** 各视图的图表名称与纵轴类型。新增视图只需在这里登记一行。 */
+const VIEW_CHART: Record<MetricView, { label: string; y: MetricAxis }> = {
+  tps: { label: "TPS", y: "tps" },
+  onlineCount: { label: "在线人数", y: "count" },
+  cpu: { label: "CPU", y: "percent" },
+  memory: { label: "内存", y: "memory" },
+  entities: { label: "实体", y: "count" },
+};
 
 export function MetricsPanel({
   metrics,
@@ -149,6 +195,8 @@ export function MetricsPanel({
   const host = reachable ? data?.host : null;
   const rows = memoryRows(data?.processes, reachable);
   const sfmcMb = measuredMemoryMb(rows);
+  const sfmcCpu = measuredCpuPercent(rows);
+  const hostCpu = host?.cpu.usedPercent ?? null;
   const windowMinutes = Number(minutes);
   const end = Math.max(data?.resourcesUpdatedAt ?? 0, data?.history.at(-1)?.recordedAt ?? 0, resources.at(-1)?.recordedAt ?? 0) || Date.now();
   const from = end - windowMinutes * 60_000;
@@ -156,9 +204,11 @@ export function MetricsPanel({
     ? []
     : field === "memory"
       ? memoryLines(resources, from, end)
-      : field === "entities"
-        ? entityLines(data.history, from, end)
-        : scalarLine(data.history, field, field === "tps" ? "TPS" : "在线人数", (dark ? PALETTES.dark : PALETTES.light).progress, from, end);
+      : field === "cpu"
+        ? cpuLines(resources, from, end)
+        : field === "entities"
+          ? entityLines(data.history, from, end)
+          : scalarLine(data.history, field, field === "tps" ? "TPS" : "在线人数", (dark ? PALETTES.dark : PALETTES.light).progress, from, end);
   return (
     <Surface
       className={className}
@@ -188,6 +238,7 @@ export function MetricsPanel({
               options={[
                 { value: "tps", label: "TPS" },
                 { value: "onlineCount", label: "在线人数" },
+                { value: "cpu", label: "CPU" },
                 { value: "memory", label: "内存" },
                 { value: "entities", label: "实体" },
               ]}
@@ -195,6 +246,8 @@ export function MetricsPanel({
             <span className="muted">
               {field === "onlineCount" && sample ? (
                 `在线 ${sample.onlineCount}`
+              ) : field === "cpu" && host ? (
+                sfmcCpu === null ? `主机 ${formatCpuPercent(hostCpu)}` : `主机 ${formatCpuPercent(hostCpu)} · SFMC ${formatCpuPercent(sfmcCpu)}`
               ) : field === "memory" && host ? (
                 sfmcMb === null ? `主机 ${memory(host.memory.usedMb)}` : `主机 ${memory(host.memory.usedMb)} · SFMC ${memory(sfmcMb)}`
               ) : sample?.tps !== null && sample?.tps !== undefined ? (
@@ -210,8 +263,8 @@ export function MetricsPanel({
               from={from}
               end={end}
               minutes={windowMinutes}
-              label={field === "memory" ? "内存" : field === "entities" ? "实体" : field === "tps" ? "TPS" : "在线人数"}
-              y={field === "memory" ? "memory" : field === "tps" ? "tps" : "count"}
+              label={VIEW_CHART[field].label}
+              y={VIEW_CHART[field].y}
             />
           ) : (
             <EmptyState
@@ -245,6 +298,21 @@ export function MetricsPanel({
             <span style={{ width: `${host?.memory.usedPercent ?? 0}%` }} />
           </div>
           {host ? <div className="muted resource-note">整机已用，含系统和其他程序</div> : null}
+          {/* 主机 CPU：放在内存说明之后，窄布局下与内存同列（见 pages.css .resource-cpu） */}
+          <div className="resource-cpu">
+            <div className="resource-row">
+              <span>主机 CPU</span>
+              <b>{formatCpuPercent(hostCpu)}</b>
+            </div>
+            <div className="memory-meter" role="meter" aria-label="CPU 使用率" aria-valuemin={0} aria-valuemax={100} aria-valuenow={hostCpu ?? undefined}>
+              <span style={{ width: `${hostCpu ?? 0}%` }} />
+            </div>
+            {host ? (
+              <div className="muted resource-note">
+                {host.cpu.cores} 核{sfmcCpu !== null ? ` · SFMC 合计 ${formatCpuPercent(sfmcCpu)}` : ""}
+              </div>
+            ) : null}
+          </div>
           {sfmcMb !== null ? (
             <div className="resource-process">
               <span>SFMC 合计</span>
@@ -256,13 +324,7 @@ export function MetricsPanel({
             <div className="resource-process" key={row.key}>
               <span>{row.label}</span>
               <b>{memory(row.process?.memoryMb)}</b>
-              <span className="muted">
-                {row.process
-                  ? row.process.running
-                    ? `累计 CPU ${row.process.cpuSeconds === null ? "未知" : `${row.process.cpuSeconds.toFixed(1)} s`}`
-                    : "已停止"
-                  : "资源未知"}
-              </span>
+              <span className="muted">{processDetail(row.process)}</span>
             </div>
           ))}
           <div className="resource-entities">

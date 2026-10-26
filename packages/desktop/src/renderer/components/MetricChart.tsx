@@ -24,10 +24,22 @@ function axisMb(value: number) {
   return `${gb >= 10 ? Math.round(gb) : gb.toFixed(1)}G`;
 }
 
-function formatValue(y: "tps" | "count" | "memory", value: number) {
+/**
+ * 纵轴类型：tps 固定 0–20，count 为整数计数，memory 为 MB（双轴），percent 为 CPU 占用率（0–100%）。
+ * 使用场景：MetricsPanel 按当前视图传入，决定刻度与悬停读数的格式。
+ */
+export type MetricAxis = "tps" | "count" | "memory" | "percent";
+
+function formatValue(y: MetricAxis, value: number) {
   if (y === "tps") return value.toFixed(2);
   if (y === "memory") return value >= 1024 ? `${(value / 1024).toFixed(1)} GB` : `${Math.round(value)} MB`;
+  if (y === "percent") return `${value.toFixed(1)}%`;
   return String(Math.round(value));
+}
+
+/** CPU 纵轴上界：按数据最大值向上取到 10 的倍数，不超过 100%，避免低负载时曲线贴底。 */
+function percentAxisMax(value: { max: number }) {
+  return Math.min(100, Math.max(10, Math.ceil(value.max / 10) * 10));
 }
 
 function TrendPlot({
@@ -43,7 +55,7 @@ function TrendPlot({
   end: number;
   minutes: number;
   label: string;
-  y: "tps" | "count" | "memory";
+  y: MetricAxis;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chart = useRef<EChartsType>(undefined);
@@ -100,10 +112,14 @@ function TrendPlot({
         : {
             type: "value",
             min: 0,
-            ...(y === "tps" ? { max: 20, interval: 5 } : { minInterval: 1, splitNumber: 4 }),
+            ...(y === "tps"
+              ? { max: 20, interval: 5 }
+              : y === "percent"
+                ? { max: percentAxisMax, splitNumber: 4 }
+                : { minInterval: 1, splitNumber: 4 }),
             axisLine: { show: false },
             axisTick: { show: false },
-            axisLabel: { color: palette.text3 },
+            axisLabel: { color: palette.text3, ...(y === "percent" ? { formatter: "{value}%" } : {}) },
             splitLine: { lineStyle: { color: palette.line, width: 0.5 } },
           },
       tooltip: {
@@ -169,7 +185,7 @@ export function MetricChart({
   end: number;
   minutes: number;
   label: string;
-  y: "tps" | "count" | "memory";
+  y: MetricAxis;
 }) {
   if (!lines.length) return <EmptyState compact icon="activity" title="暂无采样" />;
   return (

@@ -87,27 +87,68 @@ function partColor(key: string, sidecarIndex: number): string {
   return CHART_COLORS[PART_COLOR_INDEX[index % PART_COLOR_INDEX.length] ?? 0] ?? CHART_COLORS[0];
 }
 
-export function memoryLines(samples: ResourceSample[], from: number, end: number): ChartLine[] {
+/** 资源曲线的一行定义：名称、颜色、纵轴、取值函数。 */
+type ResourceSeries = [string, string, 0 | 1, (sample: ResourceSample) => number | null];
+
+/**
+ * 主机、BDS、数据服务和已登记进程的曲线定义，内存图与 CPU 图共用同一套顺序和配色。
+ * 使用场景：memoryLines、cpuLines。parts 取出该图对应的分项表（partsMb 或 partsCpuPercent）。
+ */
+function resourceSeries(
+  samples: ResourceSample[],
+  pick: { host: (s: ResourceSample) => number | null | undefined; bds: (s: ResourceSample) => number | null | undefined; db: (s: ResourceSample) => number | null | undefined; parts: (s: ResourceSample) => Record<string, number> | undefined },
+  processAxis: 0 | 1,
+): ResourceSeries[] {
   const present = new Set<string>();
-  for (const sample of samples) for (const key of Object.keys(sample.partsMb ?? {})) present.add(key);
+  for (const sample of samples) for (const key of Object.keys(pick.parts(sample) ?? {})) present.add(key);
   const partKeys = [
     ...PART_ORDER.filter((key) => present.has(key)),
     ...[...present].filter((key) => !PART_ORDER.includes(key)).sort(),
   ];
   let sidecarIndex = 0;
-  const series: [string, string, 0 | 1, (sample: ResourceSample) => number | null][] = [
-    ["主机", CHART_COLORS[2], 0, (sample) => sample.hostUsedMb],
-    ["BDS", CHART_COLORS[6], 1, (sample) => sample.bdsMb],
-    ["数据服务", CHART_COLORS[1], 1, (sample) => sample.dbMb],
-    ...partKeys.map((key): [string, string, 0 | 1, (sample: ResourceSample) => number | null] => {
+  return [
+    ["主机", CHART_COLORS[2], 0, (sample) => pick.host(sample) ?? null],
+    ["BDS", CHART_COLORS[6], processAxis, (sample) => pick.bds(sample) ?? null],
+    ["数据服务", CHART_COLORS[1], processAxis, (sample) => pick.db(sample) ?? null],
+    ...partKeys.map((key): ResourceSeries => {
       const color = partColor(key, key.startsWith("sidecar:") ? sidecarIndex++ : 0);
-      return [sfmcPartLabel(key), color, 1, (sample) => sample.partsMb?.[key] ?? null];
+      return [sfmcPartLabel(key), color, processAxis, (sample) => pick.parts(sample)?.[key] ?? null];
     }),
   ];
+}
+
+function resourceLines(samples: ResourceSample[], series: ResourceSeries[], from: number, end: number): ChartLine[] {
   return series.flatMap(([name, color, axis, pick]) => {
     const points = trendPoints(samples, pick, from, end, 45_000);
     return hasValue(points) ? [{ name, color, axis, points }] : [];
   });
+}
+
+export function memoryLines(samples: ResourceSample[], from: number, end: number): ChartLine[] {
+  const series = resourceSeries(
+    samples,
+    { host: (sample) => sample.hostUsedMb, bds: (sample) => sample.bdsMb, db: (sample) => sample.dbMb, parts: (sample) => sample.partsMb },
+    1,
+  );
+  return resourceLines(samples, series, from, end);
+}
+
+/**
+ * CPU 占用率曲线：主机与各进程同在一条 0–100% 的纵轴上（各进程之和不超过主机）。
+ * 使用场景：MetricsPanel 的「CPU」视图。旧采样没有 CPU 字段时这些点为空，不补 0。
+ */
+export function cpuLines(samples: ResourceSample[], from: number, end: number): ChartLine[] {
+  const series = resourceSeries(
+    samples,
+    {
+      host: (sample) => sample.hostCpuPercent,
+      bds: (sample) => sample.bdsCpuPercent,
+      db: (sample) => sample.dbCpuPercent,
+      parts: (sample) => sample.partsCpuPercent,
+    },
+    0,
+  );
+  return resourceLines(samples, series, from, end);
 }
 
 export function entityLines(samples: MetricsSample[], from: number, end: number): ChartLine[] {

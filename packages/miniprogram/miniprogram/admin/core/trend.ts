@@ -48,6 +48,8 @@ export interface TrendView {
   memoryMax: number;
   tps: TrendSeries[];
   players: TrendSeries[];
+  /** 主机与各进程 CPU 占用率（%），同一条纵轴 */
+  cpu: TrendSeries[];
   memory: TrendSeries[];
   entities: TrendSeries[];
 }
@@ -55,7 +57,7 @@ export interface TrendView {
 /** 还没有采样时的空窗口，避免页面初次 setData 缺字段 */
 export function emptyTrend(now = Date.now(), span: MetricSpan = "60"): TrendView {
   const end = now;
-  return { begin: end - Number(span) * 60_000, end, memoryMax: 0, tps: [], players: [], memory: [], entities: [] };
+  return { begin: end - Number(span) * 60_000, end, memoryMax: 0, tps: [], players: [], cpu: [], memory: [], entities: [] };
 }
 
 /** 把字符串收成合法档位；非法时保持原来的 1 小时 */
@@ -77,6 +79,7 @@ export function buildTrend(metrics: MetricsResult | null, span: MetricSpan, now:
     memoryMax: metrics?.host?.memory.totalMb ?? 0,
     tps: series("TPS", CHART_COLORS[2], trendPoints(history, (sample) => sample.tps, begin, end, RUNTIME_GAP_MS)),
     players: series("在线玩家", CHART_COLORS[4], trendPoints(history, (sample) => sample.onlineCount, begin, end, RUNTIME_GAP_MS)),
+    cpu: cpuSeries(resources, begin, end),
     memory: memorySeries(resources, begin, end),
     entities: entitySeries(history, begin, end),
   };
@@ -110,25 +113,66 @@ function partColor(key: string, sidecarIndex: number): string {
   return CHART_COLORS[PART_COLOR_INDEX[index % PART_COLOR_INDEX.length] ?? 0] ?? CHART_COLORS[0];
 }
 
-/** 主机走左轴，各进程走右轴，避免进程曲线被主机总量压成一条直线 */
-function memorySeries(samples: ResourceSample[], begin: number, end: number): TrendSeries[] {
+/** 资源曲线的取值函数：主机、BDS、数据服务和分项表（partsMb 或 partsCpuPercent）。 */
+interface ResourcePick {
+  host: (sample: ResourceSample) => number | null | undefined;
+  bds: (sample: ResourceSample) => number | null | undefined;
+  db: (sample: ResourceSample) => number | null | undefined;
+  parts: (sample: ResourceSample) => Record<string, number> | undefined;
+}
+
+/**
+ * 主机、BDS、数据服务和已登记进程的曲线，内存图与 CPU 图共用同一套顺序和配色。
+ * 使用场景：memorySeries（进程走右轴）、cpuSeries（同一条百分比纵轴）。
+ */
+function resourceSeries(samples: ResourceSample[], pick: ResourcePick, processAxis: 0 | 1, begin: number, end: number): TrendSeries[] {
   const present = new Set<string>();
-  for (const sample of samples) for (const key of Object.keys(sample.partsMb ?? {})) present.add(key);
+  for (const sample of samples) for (const key of Object.keys(pick.parts(sample) ?? {})) present.add(key);
   const partKeys = [
     ...PART_ORDER.filter((key) => present.has(key)),
     ...[...present].filter((key) => !PART_ORDER.includes(key)).sort(),
   ];
   let sidecarIndex = 0;
-  const rows: [string, string, 0 | 1, (sample: ResourceSample) => number | null][] = [
-    ["主机", CHART_COLORS[3], 0, (sample) => sample.hostUsedMb],
-    ["BDS", CHART_COLORS[6], 1, (sample) => sample.bdsMb],
-    ["数据服务", CHART_COLORS[1], 1, (sample) => sample.dbMb],
+  const rows: [string, string, 0 | 1, (sample: ResourceSample) => number | null | undefined][] = [
+    ["主机", CHART_COLORS[3], 0, pick.host],
+    ["BDS", CHART_COLORS[6], processAxis, pick.bds],
+    ["数据服务", CHART_COLORS[1], processAxis, pick.db],
     ...partKeys.map((key): [string, string, 0 | 1, (sample: ResourceSample) => number | null] => {
       const color = partColor(key, key.startsWith("sidecar:") ? sidecarIndex++ : 0);
-      return [sfmcPartLabel(key), color, 1, (sample) => sample.partsMb?.[key] ?? null];
+      return [sfmcPartLabel(key), color, processAxis, (sample) => pick.parts(sample)?.[key] ?? null];
     }),
   ];
-  return rows.flatMap(([name, color, axis, pick]) => series(name, color, trendPoints(samples, pick, begin, end, RESOURCE_GAP_MS), axis));
+  return rows.flatMap(([name, color, axis, value]) => series(name, color, trendPoints(samples, value, begin, end, RESOURCE_GAP_MS), axis));
+}
+
+/** 主机走左轴，各进程走右轴，避免进程曲线被主机总量压成一条直线 */
+function memorySeries(samples: ResourceSample[], begin: number, end: number): TrendSeries[] {
+  return resourceSeries(
+    samples,
+    { host: (sample) => sample.hostUsedMb, bds: (sample) => sample.bdsMb, db: (sample) => sample.dbMb, parts: (sample) => sample.partsMb },
+    1,
+    begin,
+    end,
+  );
+}
+
+/**
+ * CPU 占用率曲线：主机与各进程同在一条百分比纵轴上（各进程之和不超过主机）。
+ * 与桌面端 metric-series.ts 的 cpuLines 相同；旧采样没有 CPU 字段时不出曲线，不补 0。
+ */
+function cpuSeries(samples: ResourceSample[], begin: number, end: number): TrendSeries[] {
+  return resourceSeries(
+    samples,
+    {
+      host: (sample) => sample.hostCpuPercent,
+      bds: (sample) => sample.bdsCpuPercent,
+      db: (sample) => sample.dbCpuPercent,
+      parts: (sample) => sample.partsCpuPercent,
+    },
+    0,
+    begin,
+    end,
+  );
 }
 
 function entitySeries(samples: MetricsSample[], begin: number, end: number): TrendSeries[] {

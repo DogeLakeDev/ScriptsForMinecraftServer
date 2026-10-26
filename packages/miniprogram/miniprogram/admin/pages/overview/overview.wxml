@@ -14,10 +14,6 @@
   <block wx:if="{{ready}}">
     <!-- 状态条 -->
     <view class="strip">
-      <view class="strip-item">
-        <text class="strip-label">运行服务</text>
-        <view class="strip-value num">{{strip.running}}<text class="strip-total">{{strip.total}}</text></view>
-      </view>
       <view class="strip-item" hover-class="hover" bindtap="openPlayers">
         <text class="strip-label">在线玩家</text>
         <view class="strip-value num">{{strip.players}}</view>
@@ -25,6 +21,10 @@
       <view class="strip-item">
         <text class="strip-label">TPS</text>
         <view class="strip-value num {{strip.tpsWarn ? 'text-warning' : ''}}">{{strip.tps}}</view>
+      </view>
+      <view class="strip-item">
+        <text class="strip-label">CPU</text>
+        <view class="strip-value num">{{strip.cpu}}</view>
       </view>
       <view class="strip-item">
         <text class="strip-label">主机内存</text>
@@ -146,6 +146,15 @@
               <view style="width: {{memoryPanel.usedPercent}}%;"></view>
             </view>
             <view wx:if="{{memoryPanel.hostNote}}" class="memory-note">整机已用，含系统和其他程序</view>
+            <!-- 主机 CPU：整机占用率与核数，进度条沿用内存的样式 -->
+            <view class="memory-row">
+              <text>主机 CPU</text>
+              <text class="num">{{memoryPanel.cpu}}</text>
+            </view>
+            <view class="memory-meter">
+              <view style="width: {{memoryPanel.cpuPercent}}%;"></view>
+            </view>
+            <view wx:if="{{memoryPanel.cpuNote}}" class="memory-note">{{memoryPanel.cpuNote}}</view>
             <view wx:if="{{memoryPanel.total}}" class="memory-process">
               <view class="memory-row">
                 <text>SFMC 合计</text>
@@ -161,6 +170,15 @@
               <view class="memory-note">{{item.detail}}</view>
             </view>
           </view>
+          <!-- 各进程 CPU 占用率：主机与进程同一条百分比纵轴 -->
+          <block wx:if="{{charts.cpu.length}}">
+            <view class="chart-label">
+              <block wx:for="{{charts.cpu}}" wx:key="name">
+                <text class="dot" style="background:{{item.color}}"></text><text>{{item.name}}</text>
+              </block>
+            </view>
+            <line-chart series="{{charts.cpu}}" min="{{0}}" unit="percent" begin="{{charts.begin}}" end="{{charts.end}}" />
+          </block>
           <block wx:if="{{charts.memory.length}}">
             <view class="chart-label">
               <block wx:for="{{charts.memory}}" wx:key="name">

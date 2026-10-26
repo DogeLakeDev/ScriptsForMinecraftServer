@@ -88,6 +88,14 @@ export interface ResourceSample {
    * 使用场景：守护进程、QQ 桥、隧道、LLBot、附属进程。旧采样没有该字段；键缺省表示当时没采到。
    */
   partsMb?: Record<string, number>;
+  /**
+   * 整机 CPU 占用率（0–100）与各进程占用率，以整机全部逻辑核为 100%。
+   * 使用场景：CPU 曲线。旧采样没有这些字段；null 或键缺省表示当时没采到，不是 0。
+   */
+  hostCpuPercent?: number | null;
+  dbCpuPercent?: number | null;
+  bdsCpuPercent?: number | null;
+  partsCpuPercent?: Record<string, number>;
 }
 const memoryMb = (value: unknown) =>
   value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 8_388_608);
@@ -95,19 +103,37 @@ const memoryMb = (value: unknown) =>
 const partKey = (key: string) => /^[a-z0-9][a-z0-9_:-]{0,80}$/i.test(key);
 const memoryNumber = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 8_388_608;
+/** CPU 占用率的合法数值：0–100 的有限数。 */
+const percentNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
 
 /**
  * 丢掉不合法的分项，保留能用的数字。
  * 使用场景：读历史时旧数据或损坏字段不能把整条主机/BDS 采样丢掉。
+ * valid 默认按内存校验；CPU 分项传入 percentNumber。
  */
-function sanitizeParts(value: unknown): Record<string, number> | undefined {
+function sanitizeParts(value: unknown, valid: (item: unknown) => boolean = memoryNumber): Record<string, number> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const parts: Record<string, number> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (!partKey(key) || !memoryNumber(item)) continue;
-    parts[key] = item;
+    if (!partKey(key) || !valid(item)) continue;
+    parts[key] = item as number;
   }
   return Object.keys(parts).length ? parts : undefined;
+}
+
+/**
+ * 取出采样里合法的 CPU 字段；不合法或缺省的项直接省略。
+ * 使用场景：ResourceHistory.append 落库前与 parseResourceRows 读历史时共用，CPU 字段坏了不影响内存部分。
+ */
+function sanitizeCpu(sample: ResourceSample): Pick<ResourceSample, "hostCpuPercent" | "dbCpuPercent" | "bdsCpuPercent" | "partsCpuPercent"> {
+  const partsCpuPercent = sanitizeParts(sample.partsCpuPercent, percentNumber);
+  return {
+    ...(percentNumber(sample.hostCpuPercent) ? { hostCpuPercent: sample.hostCpuPercent } : {}),
+    ...(percentNumber(sample.dbCpuPercent) ? { dbCpuPercent: sample.dbCpuPercent } : {}),
+    ...(percentNumber(sample.bdsCpuPercent) ? { bdsCpuPercent: sample.bdsCpuPercent } : {}),
+    ...(partsCpuPercent ? { partsCpuPercent } : {}),
+  };
 }
 
 export class ResourceHistory {
@@ -128,6 +154,7 @@ export class ResourceHistory {
       dbMb: sample.dbMb,
       bdsMb: sample.bdsMb,
       ...(partsMb ? { partsMb } : {}),
+      ...sanitizeCpu(sample),
     };
     this.query("INSERT OR REPLACE INTO sfmc_resource_metrics (recorded_at, sample) VALUES (?, ?)", [
       sample.recordedAt,
@@ -250,6 +277,7 @@ function parseResourceRows(rows: { sample: string }[]): ResourceSample[] {
         dbMb: sample.dbMb,
         bdsMb: sample.bdsMb,
         ...(partsMb ? { partsMb } : {}),
+        ...sanitizeCpu(sample),
       }];
     } catch {
       return [];

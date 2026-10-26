@@ -5,6 +5,7 @@ import { PROJECT_ROOT } from "../project-root.js";
 import { METRICS_RAW_WINDOW_MS, MetricsHistory, ResourceHistory, clampMetricsSpan, parseMetrics, type MetricsSample } from "../domain/metrics.js";
 import { collectProcessResources } from "../domain/process-resources.js";
 import { collectTrackedProcesses } from "../domain/tracked-processes.js";
+import { HostCpuMeter, ProcessCpuMeter } from "../domain/cpu-usage.js";
 import type { QueryFn } from "../lib/sqlite.js";
 import fs from "node:fs";
 import pathModule from "node:path";
@@ -23,15 +24,21 @@ interface Deps {
   collectSystem?: (projectRoot: string) => Promise<SystemStatusSnapshot>;
   projectRoot?: string;
   query?: QueryFn;
+  /** 主机 CPU 占用率换算器；缺省按本机 os.cpus() 新建一个。 */
+  hostCpu?: HostCpuMeter;
+  /** 各进程 CPU 占用率换算器；缺省按本机逻辑核数新建一个。 */
+  processCpu?: ProcessCpuMeter;
 }
 
-function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): ReturnType<RouteFactory> {
+function createStatusRoutes({ collectSystem, projectRoot, query, hostCpu, processCpu }: Deps): ReturnType<RouteFactory> {
   const root = projectRoot ?? PROJECT_ROOT;
   const collect = collectSystem ?? collectSystemStatus;
   let live: LiveSnapshot | null = null;
   let metrics: MetricsSample | null = null;
   const history = query ? new MetricsHistory(query) : undefined;
   const resources = query ? new ResourceHistory(query) : undefined;
+  const hostCpuMeter = hostCpu ?? new HostCpuMeter();
+  const processCpuMeter = processCpu ?? new ProcessCpuMeter();
   let lastCapture = 0;
   const captureResources = async (system: SystemStatusSnapshot | null) => {
     if (!system) return null;
@@ -46,17 +53,39 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
     if (processes.db.pid > 0) skip.add(processes.db.pid);
     if (processes.bds && processes.bds.pid > 0) skip.add(processes.bds.pid);
     const parts = await collectTrackedProcesses(root, skip);
+    const now = Date.now();
+    // 累计 CPU 秒数换算成占用率：同一轮的进程一起交给换算器，主机占用率在同一时刻读取。
+    const hostCpuPercent = hostCpuMeter.measure(now);
+    const cpu = processCpuMeter.measure(
+      [
+        { key: "db", pid: processes.db.pid, running: processes.db.running, cpuSeconds: processes.db.cpuSeconds },
+        ...(processes.bds ? [{ key: "bds", pid: processes.bds.pid, running: processes.bds.running, cpuSeconds: processes.bds.cpuSeconds }] : []),
+        ...parts.map((part) => ({ key: part.key, pid: part.pid, running: part.running, cpuSeconds: part.cpuSeconds })),
+      ],
+      now,
+    );
+    processes.db.cpuPercent = cpu.get("db") ?? null;
+    if (processes.bds) processes.bds.cpuPercent = cpu.get("bds") ?? null;
+    for (const part of parts) part.cpuPercent = cpu.get(part.key) ?? null;
     const partsMb: Record<string, number> = {};
-    for (const part of parts) partsMb[part.key] = part.memoryMb;
+    const partsCpuPercent: Record<string, number> = {};
+    for (const part of parts) {
+      partsMb[part.key] = part.memoryMb;
+      if (typeof part.cpuPercent === "number") partsCpuPercent[part.key] = part.cpuPercent;
+    }
     resources?.append({
-      recordedAt: Date.now(),
+      recordedAt: now,
       hostUsedMb: system.host.memory.usedMb,
       dbMb: processes.db.memoryMb,
       bdsMb: processes.bds?.memoryMb ?? null,
       ...(Object.keys(partsMb).length ? { partsMb } : {}),
+      hostCpuPercent,
+      dbCpuPercent: processes.db.cpuPercent,
+      bdsCpuPercent: processes.bds?.cpuPercent ?? null,
+      ...(Object.keys(partsCpuPercent).length ? { partsCpuPercent } : {}),
     });
     lastCapture = Date.now();
-    return { ...processes, ...(parts.length ? { parts } : {}) };
+    return { processes: { ...processes, ...(parts.length ? { parts } : {}) }, hostCpuPercent };
   };
   let systemCache: { data: SystemStatusSnapshot; at: number } | undefined;
   let collecting: Promise<SystemStatusSnapshot> | undefined;
@@ -137,7 +166,9 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
       const owned = Number.isSafeInteger(ownedPid) && ownedPid > 0 && bds?.pid === ownedPid;
       const metricFresh = owned && metrics !== null && bds?.state === "running" && now - metrics.recordedAt <= 60_000 &&
         (bdsAgeMs === null || now - metrics.recordedAt <= bdsAgeMs + 2000);
-      const processes = await captureResources(system);
+      const captured = await captureResources(system);
+      // 主机 CPU 占用率挂在 host.cpu 上，与核数、型号放在一起；还没有基线时为 null。
+      const host = system ? { ...system.host, cpu: { ...system.host.cpu, usedPercent: captured?.hostCpuPercent ?? null } } : null;
       let span = METRICS_RAW_WINDOW_MS;
       const rawSpan = params.get("spanMs");
       if (rawSpan) {
@@ -147,7 +178,7 @@ function createStatusRoutes({ collectSystem, projectRoot, query }: Deps): Return
         }
       }
       json(res, { fresh: metricFresh, current: metricFresh ? metrics : null, updatedAt: metrics?.recordedAt ?? null,
-        history: history?.read(now, span) ?? [], host: system?.host ?? null, processes, resourcesUpdatedAt: system ? Date.now() : null,
+        history: history?.read(now, span) ?? [], host, processes: captured?.processes ?? null, resourcesUpdatedAt: system ? Date.now() : null,
         resourceHistory: resources?.read(now, span) ?? [],
         note: metricFresh ? undefined : bds?.state === "stopped" ? "服务器未运行" : "等待平台指标同步" });
       return true;

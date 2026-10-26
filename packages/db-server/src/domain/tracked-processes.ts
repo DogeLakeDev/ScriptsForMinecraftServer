@@ -21,6 +21,8 @@ export interface TrackedProcess {
   running: true;
   memoryMb: number;
   cpuSeconds: number | null;
+  /** CPU 占用率（整机为 100%）。由 status 路由的 ProcessCpuMeter 补上，这里采集时不填。 */
+  cpuPercent?: number | null;
 }
 
 /** 单进程运行态文件。路径都在 `<根>/.sfmc` 下，与写入方使用的文件名一致。 */

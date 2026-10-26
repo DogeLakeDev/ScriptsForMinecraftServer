@@ -79,3 +79,11 @@ export function formatMemoryMb(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return value >= 1024 ? `${(value / 1024).toFixed(1)} GB` : `${Math.round(value)} MB`;
 }
+
+/**
+ * CPU 占用率 → "12.3%"，缺失时 "—"。
+ * 使用场景：总览状态条的 CPU 格与资源清单；与桌面端 MetricsPanel 的 formatCpuPercent 规则相同。
+ */
+export function formatCpuPercent(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : `${value.toFixed(1)}%`;
+}

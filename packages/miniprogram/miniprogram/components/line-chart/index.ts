@@ -112,13 +112,15 @@ function axisLabel(value: number, unit: string): string {
     return `${Math.round(value)}M`;
   }
   if (unit === "tps") return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  if (unit === "percent") return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
   return String(Math.round(value));
 }
 
-/** 读数用完整单位，与顶部状态条的内存文案一致 */
+/** 读数用完整单位，与顶部状态条的内存 / CPU 文案一致 */
 function readoutValue(value: number, unit: string): string {
   if (unit === "memory") return formatMemoryMb(value);
   if (unit === "tps") return value.toFixed(2);
+  if (unit === "percent") return `${value.toFixed(1)}%`;
   return String(Math.round(value));
 }
 
@@ -189,7 +191,7 @@ Component({
     series: { type: Array, value: [] as Series[] },
     min: { type: Number, value: 0 },
     max: { type: Number, value: 0 },
-    /** tps / count / memory，决定刻度与读数的格式 */
+    /** tps / count / memory / percent，决定刻度与读数的格式 */
     unit: { type: String, value: "" },
     /** 时间窗左端（毫秒）。与 end 一起决定横轴，不随抽样变形。 */
     begin: { type: Number, value: 0 },

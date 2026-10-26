@@ -23,7 +23,7 @@
 
 /*
  * 总览自上而下：
- * 1. .overview-strip   一行紧凑状态条（运行服务 / 在线玩家 / TPS / 主机内存）；
+ * 1. .overview-strip   一行紧凑状态条（在线玩家 / TPS / CPU / 主机内存）；
  * 2. .overview-main    左侧服务表、右侧“需要关注”（告警 + 任务）；
  * 3. .overview-metrics 实例状态曲线横跨整行，资源数字沿用 MetricsPanel 默认的右侧栏布局。
  */
@@ -1825,6 +1825,10 @@
   margin: -4px 0 10px;
   font-size: 11px;
 }
+/* 资源侧栏的主机 CPU 块：行 + 进度条 + 核数说明，样式沿用内存那一组 */
+.resource-cpu {
+  margin-top: 4px;
+}
 .resource-process {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1861,6 +1865,7 @@
   .metrics-resources > .resource-row:first-child,
   .memory-meter,
   .resource-note,
+  .resource-cpu,
   .resource-process {
     grid-column: 1;
   }

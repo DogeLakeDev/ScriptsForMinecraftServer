@@ -10,7 +10,7 @@ import { activeTasks, useDesktop } from "../app/desktop.js";
 import { Button, IconButton } from "../components/controls.js";
 import { useAlerts } from "../components/AlertsSheet.js";
 import { AlertFeed, serviceMeta, serviceState, TaskFeed } from "../components/feeds.js";
-import { formatMemoryMb, MetricsPanel, TPS_WARN_THRESHOLD, useRuntimeMetrics } from "../components/MetricsPanel.js";
+import { formatCpuPercent, formatMemoryMb, MetricsPanel, TPS_WARN_THRESHOLD, useRuntimeMetrics } from "../components/MetricsPanel.js";
 import { Menu } from "../components/overlays.js";
 import { Tooltip } from "../components/tooltip.js";
 import { Badge, CopyText, EmptyState, IconTile, PageHeader, StatusDot, Surface } from "../components/ui.js";
@@ -21,7 +21,7 @@ import { duration, hostLabel, type Tone } from "../lib/format.js";
 
 /**
  * 顶部状态条中的一格：标题 + 数值，点击跳到对应区域或页面。
- * 使用场景：OverviewPage 顶部的运行服务、在线玩家、TPS、主机内存四项。
+ * 使用场景：OverviewPage 顶部的在线玩家、TPS、CPU、主机内存四项。
  * tone 只在数值有明确异常判定时传入（如 TPS 低于 TPS_WARN_THRESHOLD），正常时保持中性色。
  */
 function StripItem({ label, value, tone, onClick }: { label: string; value: ReactNode; tone?: Tone; onClick?: () => void }) {
@@ -155,16 +155,19 @@ export function OverviewPage() {
     return () => clearInterval(timer);
   }, []);
   const handshake = model.handshake!;
-  const running = model.services.filter((row) => row.running).length;
   const active = activeTasks(model);
   const stale = Boolean(model.disconnected);
   const playersFresh = metrics.supported
     ? metrics.fresh
     : Boolean(!stale && players?.fresh && now - Date.parse(players.updatedAt) < 60_000);
   const onlineCount = metrics.supported ? metrics.data?.current?.onlineCount : players?.players.length;
-  // 状态条的 TPS / 内存与 MetricsPanel 同源：采样新鲜才显示 TPS，连接可达才显示主机内存。
+  // 状态条的 TPS / CPU / 内存与 MetricsPanel 同源：采样新鲜才显示 TPS，连接可达才显示主机 CPU 与内存。
   const tps = metrics.fresh ? metrics.data?.current?.tps : null;
   const hostMemory = metrics.reachable ? metrics.data?.host?.memory : null;
+  const hostCpu = metrics.reachable ? metrics.data?.host?.cpu.usedPercent : null;
+  /** 点状态条的 TPS / CPU / 内存格时滚到下方的实例状态曲线。 */
+  const scrollToMetrics = () =>
+    document.querySelector(".overview-metrics")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   // 有进行中任务时只列进行中的；否则回退到最近任务，保留原“最近任务”区块的信息。
   const shownTasks = active.length ? active : model.tasks;
   return (
@@ -222,27 +225,14 @@ export function OverviewPage() {
         }
       />
       <div className="overview-strip" role="group" aria-label="实例概况">
-        <StripItem
-          label="运行服务"
-          value={
-            stale ? (
-              "—"
-            ) : (
-              <>
-                {running}
-                <span className="overview-strip-total"> / {model.services.length}</span>
-              </>
-            )
-          }
-          onClick={() => document.querySelector(".svc-table")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}
-        />
         <StripItem label="在线玩家" value={playersFresh ? (onlineCount ?? "—") : "—"} onClick={() => setPage("players")} />
         <StripItem
           label="TPS"
           value={tps === null || tps === undefined ? "—" : tps.toFixed(2)}
           tone={tps !== null && tps !== undefined && tps < TPS_WARN_THRESHOLD ? "warning" : undefined}
-          onClick={() => document.querySelector(".overview-metrics")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}
+          onClick={scrollToMetrics}
         />
+        <StripItem label="CPU" value={formatCpuPercent(hostCpu)} onClick={scrollToMetrics} />
         <StripItem
           label="主机内存"
           value={
@@ -255,7 +245,7 @@ export function OverviewPage() {
               "—"
             )
           }
-          onClick={() => document.querySelector(".overview-metrics")?.scrollIntoView({ block: "nearest", behavior: "smooth" })}
+          onClick={scrollToMetrics}
         />
       </div>
       <div className="overview-main">

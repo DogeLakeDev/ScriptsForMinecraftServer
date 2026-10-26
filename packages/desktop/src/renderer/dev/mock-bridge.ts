@@ -498,6 +498,14 @@ export function installMockBridge() {
           qq: 140 + Math.round(Math.sin(i / 5) * 12),
           "sidecar:bluemap": 220 + (i % 5) * 8,
         },
+        hostCpuPercent: Math.round((28 + wave * 9) * 10) / 10,
+        dbCpuPercent: Math.round((1.2 + (i % 4) * 0.3) * 10) / 10,
+        bdsCpuPercent: i > 70 && i < 76 ? null : Math.round((14 + Math.cos(i / 6) * 5) * 10) / 10,
+        partsCpuPercent: {
+          daemon: Math.round((0.4 + (i % 3) * 0.1) * 10) / 10,
+          qq: Math.round((0.8 + Math.sin(i / 5) * 0.3) * 10) / 10,
+          "sidecar:bluemap": Math.round((3 + (i % 5) * 0.6) * 10) / 10,
+        },
       });
     }
     const current = history[history.length - 1]!;
@@ -510,15 +518,15 @@ export function installMockBridge() {
       resourceHistory,
       host: {
         memory: { totalMb: 16384, usedMb: latest.hostUsedMb ?? 0, usedPercent: Math.round(((latest.hostUsedMb ?? 0) / 16384) * 100) },
-        cpu: { cores: 8, model: "Mock CPU" },
+        cpu: { cores: 8, model: "Mock CPU", usedPercent: latest.hostCpuPercent },
       },
       processes: {
-        db: { pid: 17920, running: true, memoryMb: latest.dbMb, cpuSeconds: 88.2 },
-        bds: { pid: 18244, running: true, memoryMb: latest.bdsMb, cpuSeconds: 640.5 },
+        db: { pid: 17920, running: true, memoryMb: latest.dbMb, cpuSeconds: 88.2, cpuPercent: latest.dbCpuPercent },
+        bds: { pid: 18244, running: true, memoryMb: latest.bdsMb, cpuSeconds: 640.5, cpuPercent: latest.bdsCpuPercent },
         parts: [
-          { key: "daemon", label: "守护进程", pid: 4100, running: true, memoryMb: latest.partsMb?.daemon ?? null, cpuSeconds: 40.2 },
-          { key: "qq", label: "QQ 桥", pid: 4108, running: true, memoryMb: latest.partsMb?.qq ?? null, cpuSeconds: 12.4 },
-          { key: "sidecar:bluemap", label: "bluemap", pid: 4220, running: true, memoryMb: latest.partsMb?.["sidecar:bluemap"] ?? null, cpuSeconds: 33.1 },
+          { key: "daemon", label: "守护进程", pid: 4100, running: true, memoryMb: latest.partsMb?.daemon ?? null, cpuSeconds: 40.2, cpuPercent: latest.partsCpuPercent?.daemon ?? null },
+          { key: "qq", label: "QQ 桥", pid: 4108, running: true, memoryMb: latest.partsMb?.qq ?? null, cpuSeconds: 12.4, cpuPercent: latest.partsCpuPercent?.qq ?? null },
+          { key: "sidecar:bluemap", label: "bluemap", pid: 4220, running: true, memoryMb: latest.partsMb?.["sidecar:bluemap"] ?? null, cpuSeconds: 33.1, cpuPercent: latest.partsCpuPercent?.["sidecar:bluemap"] ?? null },
         ],
       },
       resourcesUpdatedAt: now,
