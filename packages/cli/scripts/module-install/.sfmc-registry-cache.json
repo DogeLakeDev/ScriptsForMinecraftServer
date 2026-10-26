@@ -1,5 +1,5 @@
 {
-  "fetchedAt": 1792928891224,
+  "fetchedAt": 1792935295059,
   "index": {
     "activity-log": {
       "npm": "@sfmc-bds/module-activity-log",
@@ -100,9 +100,9 @@
     },
     "economy": {
       "npm": "@sfmc-bds/module-economy",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "sdk": ">=0.2.0",
-      "repo": "https://github.com/Tanya7z/sfmc-module-economy",
+      "repo": "https://github.com/DogeLakeDev/sfmc-module-economy",
       "name": "经济系统",
       "category": "economy",
       "license": "ISC",
