@@ -1,5 +1,13 @@
 # @sfmc-bds/tools
 
+## 0.2.12
+
+### Patch Changes
+
+- Updated dependencies [f70f65b]
+  - @sfmc-bds/sdk@0.7.0
+  - @sfmc-bds/bds-tools@0.3.1
+
 ## 0.2.11
 
 ### Patch Changes
