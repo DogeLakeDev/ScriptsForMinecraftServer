@@ -160,7 +160,7 @@
     <view wx:if="{{detail.blocked}}" class="callout tone-warning">
       <text class="i i-warning"></text>
       <view class="callout-body">
-        <view class="callout-text">请先安装并启用缺少的依赖，或到已安装列表里启用停用的模块。</view>
+        <view class="callout-text">请先安装并启用缺少的依赖。</view>
         <view class="link dep-link" bindtap="showInstalled">查看已安装模块</view>
       </view>
     </view>

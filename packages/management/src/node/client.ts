@@ -41,7 +41,7 @@ export class ManagementClient extends EventEmitter {
     if (this.closed) return Promise.reject(new Error("连接已关闭"));
     const id = randomUUID();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error("请求超时；请查询任务记录，勿重复提交")); }, timeout);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error("请求超时")); }, timeout);
       this.pending.set(id, { resolve: value => resolve(value as ManagementMethodMap[K]), reject, timer });
       this.stream.write(JSON.stringify({ id, method, params }) + "\n", error => {
         if (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }

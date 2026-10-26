@@ -10,7 +10,7 @@
 
   <!-- 未绑定 -->
   <view wx:elif="{{!bound}}" class="surface">
-    <empty-state icon="link" title="尚未绑定游戏账号" desc="在「我的」页绑定游戏角色后，即可查看自己的行为记录">
+    <empty-state icon="link" title="尚未绑定游戏账号" desc="在 “我的” 页绑定游戏角色后，即可查看自己的行为记录">
       <view class="btn btn-sm" hover-class="hover" bindtap="openMe">去绑定</view>
     </empty-state>
   </view>

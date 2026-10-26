@@ -24,7 +24,6 @@
         <view class="tile tile-blue"><text class="i i-user"></text></view>
         <view class="list-main">
           <view class="list-title"><text class="truncate">绑定游戏账号</text></view>
-          <view class="list-sub">在「我的」中用微信绑定游戏角色，查看余额与在线时长</view>
         </view>
         <text class="i i-sm i-chevron-right muted"></text>
       </view>

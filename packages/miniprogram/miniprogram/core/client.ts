@@ -96,7 +96,7 @@ export class GatewayClient {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error("请求超时；请到任务页查看结果，勿重复提交"));
+        reject(new Error("请求超时"));
       }, timeout) as unknown as number;
       this.pending.set(id, { resolve: (value) => resolve(value as ManagementMethodMap[K]), reject, timer });
       this.task!.send({
