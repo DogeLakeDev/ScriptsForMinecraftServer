@@ -2,7 +2,7 @@
  * map-view.ts — 地图页的视口与瓦片计算（纯函数，不依赖 wx）
  *
  * 使用场景：pages/map 的 canvas 渲染与手势处理：方块坐标与屏幕坐标互换、平移、以手指为中心缩放、
- * 选择瓦片层级、枚举视口内的瓦片、找低一级瓦片占位。
+ * 选择瓦片层级、枚举视口内的瓦片、找低一级瓦片占位、区块网格的线距。
  * 瓦片规则移植自 bluemap 网页 web/src/lib/unmined-meta.ts 与 satellite-map.tsx（两个项目暂时各有一份，后续可抽成共享包）。
  * 坐标约定：x 向东增大、z 向南增大；屏幕 x 向右、y 向下，因此方块 z 直接对应屏幕 y。
  */
@@ -61,6 +61,18 @@ const ZOOM_IN_EXTRA_LEVELS = 2;
 
 /** 首次进入时整图适配屏幕后再留出的边距比例（地图占屏幕短边的 90%）。使用场景：fitViewport。 */
 const FIT_FILL_RATIO = 0.9;
+
+/** 一个区块的边长（方块）。使用场景：区块网格的线距、领地按区块换算方块坐标（core/map-lands.ts）。 */
+export const CHUNK_BLOCKS = 16;
+
+/**
+ * 区块网格的疏密阈值（CSS 像素），与 bluemap 网页 web/src/lib/map-layers.ts 的 chunkGridStyle 一致：
+ * 格子小于 GRID_MIN_CELL_PX 时改为每隔 2、4、8… 个区块画一条，最多合并 GRID_MAX_MERGE 个；合并后仍小于 GRID_HIDE_PX 就不画。
+ * 使用场景：chunkGridSpacing。
+ */
+const GRID_MIN_CELL_PX = 12;
+const GRID_MAX_MERGE = 64;
+const GRID_HIDE_PX = 8;
 
 /** 某一层级上，一张瓦片覆盖的方块边长 */
 export function tileBlockSize(zoom: number, tileSize: number): number {
@@ -122,6 +134,20 @@ export function viewBlockRect(view: Viewport): MapBounds {
   const halfW = view.width / 2 / view.scale;
   const halfH = view.height / 2 / view.scale;
   return { minX: view.centerX - halfW, minZ: view.centerZ - halfH, maxX: view.centerX + halfW, maxZ: view.centerZ + halfH };
+}
+
+/**
+ * 当前缩放下区块网格线的间距（方块，总是 CHUNK_BLOCKS 的 2 的幂倍）；缩得太小不必画时返回 null。
+ * 使用场景：地图页「区块」图层，缩小时自动稀疏，避免网格糊成一片。
+ */
+export function chunkGridSpacing(scale: number): number | null {
+  let cells = 1;
+  let cellPx = CHUNK_BLOCKS * scale;
+  while (cellPx < GRID_MIN_CELL_PX && cells < GRID_MAX_MERGE) {
+    cells *= 2;
+    cellPx *= 2;
+  }
+  return cellPx < GRID_HIDE_PX ? null : cells * CHUNK_BLOCKS;
 }
 
 /**

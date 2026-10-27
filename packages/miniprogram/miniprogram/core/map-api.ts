@@ -74,7 +74,7 @@ export interface MapPlayers {
   stale: boolean;
 }
 
-/** 区域（area）或领地（land）的矩形范围 */
+/** area 模块的区域（area），或旧版 area 里带 land_core 的领地（land）的矩形范围 */
 export interface MapRegion {
   id: string;
   kind: "area" | "land";
@@ -86,12 +86,41 @@ export interface MapRegion {
   maxZ: number;
 }
 
+/** 领地里的一个子区域（水平投影，坐标含两端方块） */
+export interface MapLandArea {
+  id: string;
+  name: string;
+  dimensionId: string;
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
+}
+
+/**
+ * land 模块的一块领地（GET /map/lands）。
+ * 使用场景：地图页按区块画领地、点击时显示领主与所在子区域。与 bluemap 网页的 MapLand 同形，网关已去掉领主玩家 id。
+ */
+export interface MapLand {
+  id: string;
+  name: string;
+  ownerName: string;
+  /** active / delinquent / frozen；未知值原样显示 */
+  status: string;
+  level: number;
+  /** 按维度分组的已占领区块，chunks 为 [chunkX, chunkZ] */
+  claims: Array<{ dimensionId: string; chunks: Array<[number, number]> }>;
+  areas: MapLandArea[];
+}
+
 /** 地图接口 */
 export interface MapApi {
   readonly endpoint: string;
   meta(): Promise<MapMeta>;
   players(): Promise<MapPlayers>;
   regions(): Promise<MapRegion[]>;
+  /** land 模块的领地；旧版网关没有该接口时请求失败，由调用方按没有领地处理 */
+  lands(): Promise<MapLand[]>;
   /** 一张瓦片的完整地址（公开，不带会话） */
   tileUrl(zoom: number, tileX: number, tileZ: number, imageFormat: string): string;
 }
@@ -126,6 +155,7 @@ export function createMapApi(endpoint: string): MapApi {
     meta: () => call<MapMeta>("GET", "/map/meta"),
     players: () => call<MapPlayers>("GET", "/map/players"),
     regions: async () => (await call<{ regions: MapRegion[] }>("GET", "/map/regions")).regions,
+    lands: async () => (await call<{ lands: MapLand[] }>("GET", "/map/lands")).lands,
     tileUrl: (zoom, tileX, tileZ, imageFormat) => `${endpoint}/map/tiles/${zoom}/${tileX}/${tileZ}.${imageFormat === "jpg" ? "jpg" : "png"}`,
   };
 }

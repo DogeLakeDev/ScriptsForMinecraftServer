@@ -163,7 +163,8 @@ export function createServiceClient(
       const local = await tryLocal(name, input);
       if (local !== undefined) return local as never;
 
-      const qs = new URLSearchParams({ input: JSON.stringify(input) }).toString();
+      // SAPI 脚本引擎没有 URLSearchParams，手动编码；服务端按标准查询串解码，结果一致
+      const qs = `input=${encodeURIComponent(JSON.stringify(input))}`;
       const res = await HttpDB.typedRequest<{ ok: true; result: unknown }>(
         SafeHttpMethod.Get,
         withModuleId(`/api/sfmc/services/${encodeURIComponent(name)}?${qs}`),

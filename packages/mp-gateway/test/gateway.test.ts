@@ -370,7 +370,7 @@ const FAKE_TILE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 /**
  * 启动一个假的 bluemap 地图服务，记录收到的每个请求（方法 + 路径）。
- * 只认 /api/status、/api/players、/api/regions、属性脚本与一张瓦片 tile.-3.5（目录 -1/0），其余 404。
+ * 只认 /api/status、/api/players、/api/regions、/api/lands、属性脚本与一张瓦片 tile.-3.5（目录 -1/0），其余 404。
  */
 async function launchFakeMap() {
   const requests: string[] = [];
@@ -386,6 +386,26 @@ async function launchFakeMap() {
     }
     if (request.url === "/api/regions") {
       return json({ regions: [{ id: "a1", kind: "land", name: "家", dimension: "minecraft:overworld", minX: 0, minZ: 0, maxX: 15, maxZ: 15 }, { id: "x", kind: "other" }] });
+    }
+    if (request.url === "/api/lands") {
+      return json({
+        lands: [
+          {
+            id: "l1",
+            name: "小镇",
+            ownerId: "xuid-secret",
+            ownerName: "Steve",
+            status: "active",
+            level: 2,
+            claims: [{ dimensionId: "minecraft:overworld", chunks: [[0, 0], [1, 0], [1.5, 2], "bad"] }, { dimensionId: 3 }],
+            areas: [
+              { id: "s1", name: "商店", dimensionId: "minecraft:overworld", minX: 1, minY: 60, minZ: 2, maxX: 8, maxY: 70, maxZ: 9 },
+              { id: "bad", name: "缺坐标" },
+            ],
+          },
+          { name: "缺 id" },
+        ],
+      });
     }
     if (request.url === "/unmined/unmined.map.properties.js") {
       response.writeHead(200, { "content-type": "text/javascript" });
@@ -404,13 +424,14 @@ async function launchFakeMap() {
   return { requests, url: `http://127.0.0.1:${address.port}`, close: () => new Promise<void>((done) => server.close(() => done())) };
 }
 
-test("HTTP 地图：meta / players / regions 需要会话并只透出白名单字段；瓦片公开转发；只向地图服务发 GET", async () => {
+test("HTTP 地图：meta / players / regions / lands 需要会话并只透出白名单字段；瓦片公开转发；只向地图服务发 GET", async () => {
   const fakeMap = await launchFakeMap();
   const { gateway, base } = await launch({ map: createHttpMapSource(fakeMap.url) });
   try {
     assert.equal((await call(`${base}/map/meta`)).status, 401);
     assert.equal((await call(`${base}/map/players`)).status, 401);
     assert.equal((await call(`${base}/map/regions`)).status, 401);
+    assert.equal((await call(`${base}/map/lands`)).status, 401);
     const token = await login(base, "a");
 
     const meta = await call(`${base}/map/meta`, { token });
@@ -437,6 +458,22 @@ test("HTTP 地图：meta / players / regions 需要会话并只透出白名单�
 
     const regions = await call(`${base}/map/regions`, { token });
     assert.deepEqual(regions.data, { regions: [{ id: "a1", kind: "land", name: "家", dimension: "minecraft:overworld", minX: 0, minZ: 0, maxX: 15, maxZ: 15 }] });
+
+    // 领地：不透出领主玩家 id 与子区域的高度；非整数区块、缺字段的区块组 / 子区域 / 领地被丢弃
+    const lands = await call(`${base}/map/lands`, { token });
+    assert.deepEqual(lands.data, {
+      lands: [
+        {
+          id: "l1",
+          name: "小镇",
+          ownerName: "Steve",
+          status: "active",
+          level: 2,
+          claims: [{ dimensionId: "minecraft:overworld", chunks: [[0, 0], [1, 0]] }],
+          areas: [{ id: "s1", name: "商店", dimensionId: "minecraft:overworld", minX: 1, minZ: 2, maxX: 8, maxZ: 9 }],
+        },
+      ],
+    });
 
     // 瓦片不带会话也能取；负坐标的目录分组向下取整（-3 → -1）
     const tile = await fetch(`${base}/map/tiles/0/-3/5.png`);

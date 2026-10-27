@@ -29,6 +29,9 @@
       <view class="chip map-chip {{showRegions ? 'active' : ''}}" bindtap="toggleRegions">
         <text class="i i-sm i-layers"></text>区域与领地
       </view>
+      <view class="chip map-chip {{showChunks ? 'active' : ''}}" bindtap="toggleChunks">
+        <text class="i i-sm i-overview"></text>区块
+      </view>
     </view>
     <view wx:if="{{stale}}" class="badge tone-warning map-stale">玩家位置已停止更新</view>
   </view>
