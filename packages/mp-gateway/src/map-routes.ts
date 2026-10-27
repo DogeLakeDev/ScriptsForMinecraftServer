@@ -3,7 +3,8 @@
  *
  *   GET …/map/meta                        → MapMeta（需要玩家会话）
  *   GET …/map/players                     → { players, updatedAt, stale }（需要玩家会话；所有在线玩家）
- *   GET …/map/regions                     → { regions }（需要玩家会话）
+ *   GET …/map/regions                     → { regions }（需要玩家会话；area 模块的矩形区域）
+ *   GET …/map/lands                       → { lands }（需要玩家会话；land 模块按区块占领的领地及其子区域）
  *   GET …/map/tiles/{zoom}/{x}/{z}.{ext}  → 瓦片图片（公开；canvas 加载网络图片无法携带 Authorization 头）
  *
  * 使用场景：小程序 pages/map。按 player-routes.ts 约定的方式新增路由工厂并在 server.ts 注册（OCP）。
@@ -87,6 +88,13 @@ export function createMapRoutes(deps: MapRouteDeps): Route[] {
       suffix: "/map/regions",
       async handle(context) {
         sendJson(context.response, 200, { regions: await sessionMap(context).regions() });
+      },
+    },
+    {
+      method: "GET",
+      suffix: "/map/lands",
+      async handle(context) {
+        sendJson(context.response, 200, { lands: await sessionMap(context).lands() });
       },
     },
     {

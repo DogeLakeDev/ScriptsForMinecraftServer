@@ -4,18 +4,23 @@
  * 使用场景：查看服务器主世界的俯视地图（bluemap / uNmINeD 渲染的瓦片）、所有在线玩家的位置，以及区域与领地范围。
  * - canvas 2d 原生绘制：单指拖动、双指缩放，用 canvas.requestAnimationFrame 按需重绘；
  * - 瓦片走 core/tile-cache.ts 的 LRU 缓存，目标层级还没加载完时用已缓存的低一级瓦片放大占位；
- * - 玩家与区域 / 领地两个图层可开关；点击玩家显示名字与坐标，点击空白处显示所在区域；
+ * - 玩家、区域与领地、区块网格三个图层可开关；点击玩家显示名字与坐标，点击空白处显示所在领地（含子区域）或区域；
+ * - 领地来自 land 模块（…/map/lands，按区块画填充、外轮廓与子区域虚线框，几何在 core/map-lands.ts），
+ *   区域来自 area 模块（…/map/regions，矩形）；
  * - 不在主世界的玩家列在底部，不画在图上（瓦片只覆盖主世界）；
  * - 已绑定游戏账号时显示「定位到我」，按游戏角色名匹配自己的位置；
- * - 页面显示时每 5 秒刷新玩家位置，隐藏时停止；元数据与区域在每次进入页面时拉取。
+ * - 页面显示时每 5 秒刷新玩家位置，隐藏时停止；元数据、区域与领地在每次进入页面时拉取。
  * 数据来自 core/map-api.ts（mp-gateway 只读转发），视口与瓦片计算在 core/map-view.ts。
  */
 import { errorText } from "../../core/format";
-import { homeMapApi, renderedMeta, type MapPlayer, type MapRegion, type RenderedMapMeta } from "../../core/map-api";
+import { homeMapApi, renderedMeta, type MapLand, type MapPlayer, type MapRegion, type RenderedMapMeta } from "../../core/map-api";
+import { buildLandShapes, landAt, landStatusLabel, type LandShape } from "../../core/map-lands";
 import {
   ancestorTile,
   blockToScreen,
+  CHUNK_BLOCKS,
   chooseTileZoom,
+  chunkGridSpacing,
   clampCenter,
   dimensionLabel,
   hitNearest,
@@ -28,6 +33,7 @@ import {
   tileKeyString,
   touchDistance,
   touchMidpoint,
+  viewBlockRect,
   visibleTiles,
   zoomAt,
   type ScreenPoint,
@@ -60,21 +66,28 @@ const ZOOM_BUTTON_FACTOR = 2;
 const LOCATE_MIN_SCALE = 2;
 /** 区域在屏幕上至少这么宽（CSS 像素）才写名称，避免小领地的字糊成一团 */
 const REGION_LABEL_MIN_PX = 48;
+/** 领地子区域虚线框的线段 / 间隔长度（CSS 像素）。使用场景：drawLands */
+const LAND_AREA_DASH = [4, 3];
 
 /**
  * 画布配色。canvas 读不到 CSS 变量，按系统主题取两套。
  * bg 与 theme.json 的 pageBg 一致（地图边界外的底色）；玩家与区域颜色叠在地形上，需要描边保证对比度。
+ * grid / gridHighlight 是区块网格的暗线与错开 1 像素的亮线，深浅地形上都能看清（与 bluemap 网页 chunkGridStyle 同色）。
+ * land 模块的领地按 id 取色（core/map-lands.ts 的 landColor），不在这里。
  */
 const MAP_COLORS = {
-  light: { bg: "#f5f5f6", player: "#2563eb", self: "#ea580c", outline: "#ffffff", label: "#1c1c1c", labelHalo: "rgba(255,255,255,0.85)", area: "rgba(37,99,235,0.95)", areaFill: "rgba(37,99,235,0.10)", land: "rgba(22,163,74,0.95)", landFill: "rgba(22,163,74,0.12)", selected: "#facc15" },
-  dark: { bg: "#1d1d1d", player: "#60a5fa", self: "#fb923c", outline: "#111111", label: "#f2f2f2", labelHalo: "rgba(0,0,0,0.75)", area: "rgba(96,165,250,0.95)", areaFill: "rgba(96,165,250,0.12)", land: "rgba(74,222,128,0.95)", landFill: "rgba(74,222,128,0.14)", selected: "#facc15" },
+  light: { bg: "#f5f5f6", player: "#2563eb", self: "#ea580c", outline: "#ffffff", label: "#1c1c1c", labelHalo: "rgba(255,255,255,0.85)", area: "rgba(37,99,235,0.95)", areaFill: "rgba(37,99,235,0.10)", land: "rgba(22,163,74,0.95)", landFill: "rgba(22,163,74,0.12)", selected: "#facc15", grid: "rgba(0,0,0,0.55)", gridHighlight: "rgba(255,255,255,0.65)" },
+  dark: { bg: "#1d1d1d", player: "#60a5fa", self: "#fb923c", outline: "#111111", label: "#f2f2f2", labelHalo: "rgba(0,0,0,0.75)", area: "rgba(96,165,250,0.95)", areaFill: "rgba(96,165,250,0.12)", land: "rgba(74,222,128,0.95)", landFill: "rgba(74,222,128,0.14)", selected: "#facc15", grid: "rgba(0,0,0,0.55)", gridHighlight: "rgba(255,255,255,0.65)" },
 };
 
 /** 地图页用到的 canvas 2d 上下文 */
 type Context2D = WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D;
 
-/** 当前选中的对象：玩家按名字跟踪（位置会刷新），区域按 id */
-type Selection = { kind: "player"; name: string } | { kind: "region"; id: string } | null;
+/**
+ * 当前选中的对象：玩家按名字跟踪（位置会刷新），区域按 id；
+ * 领地按 id，并记下点击处所在的子区域 id（信息卡列出子区域名）
+ */
+type Selection = { kind: "player"; name: string } | { kind: "region"; id: string } | { kind: "land"; id: string; areaIds: string[] } | null;
 
 /** 一次手势的跟踪状态 */
 interface Gesture {
@@ -98,6 +111,8 @@ const rt = {
   meta: null as RenderedMapMeta | null,
   players: [] as MapPlayer[],
   regions: [] as MapRegion[],
+  /** land 模块领地的主世界绘制几何（每次进入页面拉取后重算） */
+  landShapes: [] as LandShape[],
   tiles: null as TileCache<WechatMiniprogram.Image> | null,
   tilesCreatedAt: 0,
   /** 已排队的动画帧；非 null 时不重复请求 */
@@ -107,9 +122,11 @@ const rt = {
   /** 当前微信绑定的游戏角色名；未绑定为空 */
   myName: "",
   selection: null as Selection,
-  /** 图层开关（与 data.showPlayers / showRegions 同步，绘制时读这里，免得每帧读页面实例） */
+  /** 图层开关（与 data.showPlayers / showRegions / showChunks 同步，绘制时读这里，免得每帧读页面实例） */
   showPlayers: true,
   showRegions: true,
+  /** 区块网格默认关闭（与网页版一致），放大看领地边界时再打开 */
+  showChunks: false,
   /** 丢弃过期的加载结果（快速切换标签页时旧请求晚到） */
   loadTicket: 0,
 };
@@ -251,6 +268,88 @@ function drawRegions(ctx: Context2D, palette: Palette, view: Viewport): void {
   }
 }
 
+/**
+ * 画 land 模块的领地：按区块半透明填充、只描外轮廓，子区域画虚线框；
+ * 领地在屏幕上足够宽时在标签点写领地名，子区域足够宽时在左上角写子区域名。
+ * 使用场景：「区域与领地」图层打开时，画在 area 矩形之上。
+ */
+function drawLands(ctx: Context2D, palette: Palette, view: Viewport): void {
+  const rect = viewBlockRect(view);
+  const cell = CHUNK_BLOCKS * view.scale;
+  for (const shape of rt.landShapes) {
+    const { bounds } = shape;
+    if (bounds.maxX < rect.minX || bounds.minX > rect.maxX || bounds.maxZ < rect.minZ || bounds.minZ > rect.maxZ) continue;
+    const selected = rt.selection?.kind === "land" && rt.selection.id === shape.land.id;
+    // 同一路径内的格子同向，按非零规则合并填充，相邻区块之间不会出现深色缝
+    ctx.beginPath();
+    for (const [x, z] of shape.chunks) {
+      const origin = blockToScreen(view, x, z);
+      ctx.rect(origin.x, origin.y, cell, cell);
+    }
+    ctx.fillStyle = shape.color.fill;
+    ctx.fill();
+    ctx.beginPath();
+    for (const edge of shape.edges) {
+      const from = blockToScreen(view, edge.x1, edge.z1);
+      const to = blockToScreen(view, edge.x2, edge.z2);
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+    }
+    ctx.strokeStyle = selected ? palette.selected : shape.color.stroke;
+    ctx.lineWidth = selected ? 3 : 1.5;
+    ctx.lineCap = "square";
+    ctx.stroke();
+    if (shape.areas.length) {
+      ctx.setLineDash(LAND_AREA_DASH);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = shape.color.stroke;
+      for (const area of shape.areas) {
+        const topLeft = blockToScreen(view, area.minX, area.minZ);
+        const bottomRight = blockToScreen(view, area.maxX + 1, area.maxZ + 1);
+        const width = bottomRight.x - topLeft.x;
+        ctx.strokeRect(topLeft.x, topLeft.y, width, bottomRight.y - topLeft.y);
+        if (width >= REGION_LABEL_MIN_PX && bottomRight.y - topLeft.y >= 20) drawLabel(ctx, palette, area.name, topLeft.x + 4, topLeft.y + 10, "left");
+      }
+      ctx.setLineDash([]);
+    }
+    if ((bounds.maxX - bounds.minX) * view.scale >= REGION_LABEL_MIN_PX) {
+      const at = blockToScreen(view, shape.labelAt.x, shape.labelAt.z);
+      drawLabel(ctx, palette, shape.land.name, at.x, at.y, "center");
+    }
+  }
+}
+
+/**
+ * 画区块网格：暗线加错开 1 像素的亮线；缩小时按 chunkGridSpacing 自动稀疏，太小就不画。
+ * 使用场景：「区块」图层打开时，画在瓦片之上、区域与领地之下。
+ */
+function drawChunkGrid(ctx: Context2D, palette: Palette, view: Viewport): void {
+  const spacing = chunkGridSpacing(view.scale);
+  if (spacing === null) return;
+  const rect = viewBlockRect(view);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  // 取整到像素中线，1 像素线不发虚
+  for (let x = Math.ceil(rect.minX / spacing) * spacing; x <= rect.maxX; x += spacing) xs.push(Math.round(blockToScreen(view, x, 0).x) + 0.5);
+  for (let z = Math.ceil(rect.minZ / spacing) * spacing; z <= rect.maxZ; z += spacing) ys.push(Math.round(blockToScreen(view, 0, z).y) + 0.5);
+  const strokeGrid = (offset: number, color: string) => {
+    ctx.beginPath();
+    for (const x of xs) {
+      ctx.moveTo(x + offset, 0);
+      ctx.lineTo(x + offset, view.height);
+    }
+    for (const y of ys) {
+      ctx.moveTo(0, y + offset);
+      ctx.lineTo(view.width, y + offset);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  };
+  strokeGrid(0, palette.grid);
+  strokeGrid(1, palette.gridHighlight);
+}
+
 /** 重绘整张画布 */
 function draw(): void {
   const { ctx, view, meta } = rt;
@@ -260,7 +359,11 @@ function draw(): void {
   ctx.fillStyle = palette.bg;
   ctx.fillRect(0, 0, view.width, view.height);
   drawTiles(ctx, view, meta);
-  if (rt.showRegions) drawRegions(ctx, palette, view);
+  if (rt.showChunks) drawChunkGrid(ctx, palette, view);
+  if (rt.showRegions) {
+    drawRegions(ctx, palette, view);
+    drawLands(ctx, palette, view);
+  }
   if (rt.showPlayers) {
     for (const player of rt.players) {
       if (!isOverworld(player.dimension)) continue;
@@ -285,6 +388,8 @@ interface MapData {
   renderMessage: string;
   showPlayers: boolean;
   showRegions: boolean;
+  /** 「区块」网格图层开关 */
+  showChunks: boolean;
   /** 游戏服务器的位置上报已中断 */
   stale: boolean;
   onlineCount: number;
@@ -304,6 +409,7 @@ Page({
     renderMessage: "",
     showPlayers: true,
     showRegions: true,
+    showChunks: false,
     stale: false,
     onlineCount: 0,
     otherDimensions: [],
@@ -329,15 +435,20 @@ Page({
     this.stopPolling();
   },
 
-  /** 拉取元数据、区域与自己的绑定信息；有地图时初始化画布 */
+  /** 拉取元数据、区域、领地与自己的绑定信息；有地图时初始化画布 */
   async load() {
     const ticket = ++rt.loadTicket;
     const api = homeMapApi();
     try {
-      // 区域读取失败不影响看地图，按没有区域处理
-      const [meta, regions] = await Promise.all([api.meta(), api.regions().catch(() => [] as MapRegion[])]);
+      // 区域 / 领地读取失败（含旧版网关没有 /map/lands）不影响看地图，按没有区域 / 领地处理
+      const [meta, regions, lands] = await Promise.all([
+        api.meta(),
+        api.regions().catch(() => [] as MapRegion[]),
+        api.lands().catch(() => [] as MapLand[]),
+      ]);
       if (ticket !== rt.loadTicket) return;
       rt.regions = regions;
+      rt.landShapes = buildLandShapes(lands);
       const rendered = renderedMeta(meta);
       if (!rendered) {
         rt.meta = null;
@@ -489,7 +600,7 @@ Page({
     if (wasTap && tapAt) this.handleTap(tapAt);
   },
 
-  /** 点击：优先选中附近的玩家，其次选中所在的区域 / 领地，否则清除选中 */
+  /** 点击：优先选中附近的玩家，其次选中所在的领地（land 模块），再次选中所在的区域（area 模块），否则清除选中 */
   handleTap(point: ScreenPoint) {
     const view = rt.view;
     if (!view) return;
@@ -505,6 +616,13 @@ Page({
     }
     if (rt.showRegions) {
       const block = screenToBlock(view, point);
+      const land = landAt(rt.landShapes, block.x, block.z);
+      if (land) {
+        rt.selection = { kind: "land", id: land.shape.land.id, areaIds: land.areas.map((area) => area.id) };
+        this.refreshSelection();
+        requestDraw();
+        return;
+      }
       const overworld = rt.regions.filter((region) => isOverworld(region.dimension));
       const index = smallestRegionAt(overworld, block.x, block.z);
       if (index >= 0) {
@@ -532,6 +650,19 @@ Page({
       this.setData({ selectedTitle: region.name, selectedDesc: `${regionKindLabel(region.kind)} · ${region.minX}, ${region.minZ} → ${region.maxX}, ${region.maxZ}` });
       return;
     }
+    if (selection?.kind === "land") {
+      const shape = rt.landShapes.find((item) => item.land.id === selection.id);
+      if (!shape) return this.clearSelection();
+      const { land } = shape;
+      const areaNames = shape.areas.filter((area) => selection.areaIds.includes(area.id)).map((area) => area.name);
+      const parts = ["领地"];
+      if (land.ownerName) parts.push(`领主 ${land.ownerName}`);
+      // 正常状态不占信息卡位置，只提示欠费 / 冻结等异常
+      if (land.status && land.status !== "active") parts.push(landStatusLabel(land.status));
+      if (areaNames.length) parts.push(`区域 ${areaNames.join("、")}`);
+      this.setData({ selectedTitle: land.name, selectedDesc: parts.join(" · ") });
+      return;
+    }
     if (this.data.selectedTitle) this.setData({ selectedTitle: "", selectedDesc: "" });
   },
   clearSelection() {
@@ -549,7 +680,13 @@ Page({
   toggleRegions() {
     rt.showRegions = !rt.showRegions;
     this.setData({ showRegions: rt.showRegions });
-    if (!rt.showRegions && rt.selection?.kind === "region") this.clearSelection();
+    if (!rt.showRegions && (rt.selection?.kind === "region" || rt.selection?.kind === "land")) this.clearSelection();
+    requestDraw();
+  },
+  /** 开关区块网格 */
+  toggleChunks() {
+    rt.showChunks = !rt.showChunks;
+    this.setData({ showChunks: rt.showChunks });
     requestDraw();
   },
 

@@ -1,9 +1,9 @@
 /**
  * map-client.ts — 只读访问本机 bluemap 地图服务（map-server，默认 127.0.0.1:5120）
  *
- * 使用场景：map-routes.ts 的 …/map/meta、…/map/players、…/map/regions 与瓦片转发（小程序「地图」页）。
+ * 使用场景：map-routes.ts 的 …/map/meta、…/map/players、…/map/regions、…/map/lands 与瓦片转发（小程序「地图」页）。
  * 以 MapSource 接口提供（DIP），路由不依赖地图服务的 HTTP 路径与文件布局；单测可换成指向假地图服务的实现。
- * 只调用地图服务的 GET 接口，绝不转发它没有鉴权的写接口（POST /api/players、/api/regions、/api/render）。
+ * 只调用地图服务的 GET 接口，绝不转发它没有鉴权的写接口（POST /api/players、/api/regions、/api/lands、/api/render）。
  */
 import { Readable } from "node:stream";
 import { HttpError } from "./routes.js";
@@ -93,6 +93,36 @@ export interface MapRegion {
   maxZ: number;
 }
 
+/**
+ * 领地里的一个子区域（land 模块的三维盒子，这里只保留水平投影）。坐标含两端方块。
+ * 使用场景：MapLand.areas，小程序地图在领地内画虚线框、点击时列出所在子区域。
+ */
+export interface MapLandArea {
+  id: string;
+  name: string;
+  dimensionId: string;
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
+}
+
+/**
+ * land 模块的一块领地（地图服务 GET /api/lands，数据由 bluemap 脚本从 land.map 服务推送）。
+ * 使用场景：…/map/lands，小程序地图按区块画领地。只透出地图需要的字段，不转发领主的玩家 id。
+ */
+export interface MapLand {
+  id: string;
+  name: string;
+  ownerName: string;
+  /** active / delinquent / frozen；未知值原样透传 */
+  status: string;
+  level: number;
+  /** 按维度分组的已占领区块，chunks 为 [chunkX, chunkZ] */
+  claims: Array<{ dimensionId: string; chunks: Array<[number, number]> }>;
+  areas: MapLandArea[];
+}
+
 /** 一张瓦片的转发结果；status 为 404 时 body 为 null */
 export interface MapTile {
   status: 200 | 404;
@@ -115,6 +145,7 @@ export interface MapSource {
   meta(): Promise<MapMeta>;
   players(): Promise<MapPlayersResult>;
   regions(): Promise<MapRegion[]>;
+  lands(): Promise<MapLand[]>;
   tile(key: MapTileKey): Promise<MapTile>;
 }
 
@@ -216,6 +247,44 @@ function sanitizeRegions(raw: unknown): MapRegion[] {
   return result;
 }
 
+/** 是否为 [chunkX, chunkZ] 整数对 */
+function isChunk(value: unknown): value is [number, number] {
+  return Array.isArray(value) && value.length === 2 && Number.isInteger(value[0]) && Number.isInteger(value[1]);
+}
+
+/**
+ * 只保留合法的领地条目，并去掉地图服务可能附带的其他字段（含领主玩家 id）。
+ * 使用场景：lands()。单个区块组 / 子区域不合格时只丢弃该项，领地本身缺字段时整块丢弃。
+ */
+function sanitizeLands(raw: unknown): MapLand[] {
+  if (!Array.isArray(raw)) return [];
+  const result: MapLand[] = [];
+  for (const row of raw as Array<Record<string, unknown>>) {
+    if (!row || typeof row.id !== "string" || typeof row.name !== "string") continue;
+    const claims: MapLand["claims"] = [];
+    for (const group of Array.isArray(row.claims) ? (row.claims as Array<Record<string, unknown>>) : []) {
+      if (!group || typeof group.dimensionId !== "string" || !Array.isArray(group.chunks)) continue;
+      claims.push({ dimensionId: group.dimensionId, chunks: group.chunks.filter(isChunk).map(([x, z]) => [x, z]) });
+    }
+    const areas: MapLandArea[] = [];
+    for (const area of Array.isArray(row.areas) ? (row.areas as Array<Record<string, unknown>>) : []) {
+      if (!area || typeof area.id !== "string" || typeof area.name !== "string" || typeof area.dimensionId !== "string") continue;
+      if (!isNum(area.minX) || !isNum(area.minZ) || !isNum(area.maxX) || !isNum(area.maxZ)) continue;
+      areas.push({ id: area.id, name: area.name, dimensionId: area.dimensionId, minX: area.minX, minZ: area.minZ, maxX: area.maxX, maxZ: area.maxZ });
+    }
+    result.push({
+      id: row.id,
+      name: row.name,
+      ownerName: typeof row.ownerName === "string" ? row.ownerName : "",
+      status: typeof row.status === "string" ? row.status : "",
+      level: isNum(row.level) ? row.level : 0,
+      claims,
+      areas,
+    });
+  }
+  return result;
+}
+
 /**
  * 基于地图服务 HTTP 的实现。
  *
@@ -278,6 +347,11 @@ export function createHttpMapSource(baseUrl: string, fetchImpl: typeof fetch = f
     async regions() {
       const data = await getJson("/api/regions");
       return sanitizeRegions(data.regions);
+    },
+
+    async lands() {
+      const data = await getJson("/api/lands");
+      return sanitizeLands(data.lands);
     },
 
     async tile(key) {
