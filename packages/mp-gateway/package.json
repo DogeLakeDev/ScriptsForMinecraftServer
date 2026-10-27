@@ -1,6 +1,6 @@
 {
   "name": "@sfmc-bds/mp-gateway",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "private": true,
   "description": "SFMC 微信小程序管理网关：把鉴权后的 WebSocket 连接桥接到 sfmc manage --stdio",
   "author": "Shiroha7z",
