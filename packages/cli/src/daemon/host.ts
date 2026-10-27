@@ -91,39 +91,28 @@ function launchWindowsOutsideSession(spec: DaemonHostSpec): string | null {
   const env = carriedEnv(spec, ["PATH", "PATHEXT", "SystemRoot", "USERNAME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP"]);
   const assignments = Object.entries(env).map(([key, value]) => `$env:${key} = ${psLiteral(value)}`);
   const log = psLiteral(spec.logPath);
-  // 事件回调跑在别的线程，用脚本作用域保住日志写入器。入口参数用字符码拼引号，避免转义把路径截断。
+  // 不能用 OutputDataReceived 脚本块回调接管输出：Windows PowerShell 5.1 在线程池线程上没有 Runspace，
+  // 守护进程输出第一行时外壳就会抛 PSInvalidOperationException 崩溃，守护进程随之退出。
+  // 改由 cmd.exe 把标准输出和标准错误追加进日志。cmd 的 >> 运行期间只允许别人读、不允许追加，
+  // 句柄在守护进程退出后立即释放；平台切换里的 waitDaemonLogAppendable 发生在旧守护进程退出之后，不受影响。
+  // 路径经环境变量交给 cmd 展开，避免拼进命令行时被引号或特殊字符截断；
+  // 整行先展开再执行，所以前面的 set 能把 SFMC_DAEMON_LOG 从守护进程环境里去掉，同时不影响重定向目标。
   const script = [
     "$ErrorActionPreference = 'Stop'",
     `$env:SFMC_DAEMON_LOG = ${log}`,
     ...assignments,
     "New-Item -ItemType Directory -Force -Path (Split-Path -Parent $env:SFMC_DAEMON_LOG) | Out-Null",
     "Set-Location -LiteralPath $env:SFMC_ROOT",
-    // StreamWriter(path, append) 默认 FileShare.Read，会挡住下一次平台校验里的追加打开。
-    "$mode = [System.IO.FileMode]::Append",
-    "$access = [System.IO.FileAccess]::Write",
-    "$share = [System.IO.FileShare]::ReadWrite",
-    "$stream = New-Object System.IO.FileStream($env:SFMC_DAEMON_LOG, $mode, $access, $share)",
-    "$inner = New-Object System.IO.StreamWriter($stream)",
-    "$inner.AutoFlush = $true",
-    "$script:writer = [System.IO.TextWriter]::Synchronized($inner)",
-    "Remove-Item Env:SFMC_DAEMON_LOG",
     "$psi = New-Object System.Diagnostics.ProcessStartInfo",
-    "$psi.FileName = $env:SFMC_NODE_BINARY",
-    "$psi.Arguments = ([char]34) + $env:SFMC_DAEMON_ENTRY + ([char]34) + ' --daemon'",
+    "$psi.FileName = Join-Path $env:SystemRoot 'System32\\cmd.exe'",
+    `$psi.Arguments = '/d /s /c "set "SFMC_DAEMON_LOG=" & "%SFMC_NODE_BINARY%" "%SFMC_DAEMON_ENTRY%" --daemon >> "%SFMC_DAEMON_LOG%" 2>&1"'`,
     "$psi.WorkingDirectory = $env:SFMC_ROOT",
     "$psi.UseShellExecute = $false",
     "$psi.CreateNoWindow = $true",
-    "$psi.RedirectStandardOutput = $true",
-    "$psi.RedirectStandardError = $true",
     "$proc = New-Object System.Diagnostics.Process",
     "$proc.StartInfo = $psi",
-    "$onLine = { param($sender, $lineEvent) if ($null -ne $lineEvent.Data) { $script:writer.WriteLine($lineEvent.Data) } }",
-    "$proc.add_OutputDataReceived($onLine)",
-    "$proc.add_ErrorDataReceived({ param($sender, $lineEvent) if ($null -ne $lineEvent.Data) { $script:writer.WriteLine($lineEvent.Data) } })",
     "[void]$proc.Start()",
-    "$proc.BeginOutputReadLine()",
-    "$proc.BeginErrorReadLine()",
-    "try { $proc.WaitForExit() } finally { if ($script:writer) { $script:writer.Dispose() } }",
+    "$proc.WaitForExit()",
   ];
   const commandLine = `powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script.join("\n"), "utf16le").toString("base64")}`;
   const run = (hide: boolean) => {
