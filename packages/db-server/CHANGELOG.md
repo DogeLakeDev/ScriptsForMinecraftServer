@@ -1,5 +1,13 @@
 # @sfmc-bds/db-server
 
+## 0.8.3
+
+### Patch Changes
+
+- Updated dependencies [e6ce6e6]
+  - @sfmc-bds/bds-tools@0.3.4
+  - @sfmc-bds/sdk@0.7.3
+
 ## 0.8.2
 
 ### Patch Changes
