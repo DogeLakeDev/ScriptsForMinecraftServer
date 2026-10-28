@@ -46,7 +46,7 @@
     },
     "version_versions": {
       "type": "string",
-      "description": "版本列表 API URL"
+      "description": "版本列表 API URL（Bedrock-OSS 格式）。不填时先查 Mojang 官方下载接口，失败再用 Bedrock-OSS 列表；填写后只用此地址"
     },
     "version_versions_mirror": {
       "type": "string",

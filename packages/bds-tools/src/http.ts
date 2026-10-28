@@ -61,6 +61,7 @@ export async function httpRequest(
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
+          clearTimers();
           const body = Buffer.concat(chunks);
           const status = res.statusCode ?? 0;
           // 3xx → 跟随 Location
@@ -87,11 +88,15 @@ export async function httpRequest(
     const connectTimer = setTimeout(() => {
       req.destroy(new Error(`HTTP 连接超时 ${connectTimeoutMs}ms: ${url}`));
     }, connectTimeoutMs);
+    /** 清除本次请求的两个超时计时器；响应读完（含成功、重定向、4xx）与请求出错时调用，避免计时器让进程空等到超时才退出。 */
+    const clearTimers = (): void => {
+      clearTimeout(totalTimer);
+      clearTimeout(connectTimer);
+    };
 
     req.on("socket", () => clearTimeout(connectTimer));
     req.on("error", (err) => {
-      clearTimeout(totalTimer);
-      clearTimeout(connectTimer);
+      clearTimers();
       reject(err);
     });
 
@@ -204,6 +209,8 @@ export async function httpDownload(
       (res) => {
         const status = res.statusCode ?? 0;
         if (status >= 300 && status < 400 && redirects < MAX_REDIRECTS) {
+          // 重定向后由新请求自带计时器，本请求的计时器需清除，否则旧计时器到期会销毁已结束的请求并误报错误
+          clearTimers();
           const loc = res.headers.location;
           if (!loc) return reject(new Error(`HTTP ${status} 缺少 Location`));
           redirects++;
@@ -214,7 +221,10 @@ export async function httpDownload(
             .catch(reject);
           return;
         }
-        if (status >= 400) return reject(new Error(`HTTP ${status} for ${url}`));
+        if (status >= 400) {
+          clearTimers();
+          return reject(new Error(`HTTP ${status} for ${url}`));
+        }
 
         const total = parseInt(String(res.headers["content-length"] ?? 0), 10) || 0;
         const file = createWriteStream(destPath);
@@ -228,6 +238,7 @@ export async function httpDownload(
         const handleError = (e: Error): void => {
           if (failed) return;
           failed = true;
+          clearTimers();
           file.close();
           // 清理 partial 文件
           import("node:fs").then((fs) => {
@@ -259,6 +270,7 @@ export async function httpDownload(
         // 不能直接监听 file 'finish' 因为我们在错误时手动 handleError
         file.on("finish", () => {
           if (failed) return;
+          clearTimers();
           try {
             const finalBytes = statSync(destPath).size;
             // 收尾:确保最后一次回调让进度条走到 100%(即便最近
@@ -281,11 +293,15 @@ export async function httpDownload(
     const connectTimer = setTimeout(() => {
       req.destroy(new Error(`下载连接超时 ${connectTimeoutMs}ms: ${url}`));
     }, connectTimeoutMs);
+    /** 清除本次下载的两个超时计时器；下载完成、重定向、4xx 与任一出错路径调用，避免计时器在下载结束后继续存活。 */
+    const clearTimers = (): void => {
+      clearTimeout(totalTimer);
+      clearTimeout(connectTimer);
+    };
 
     req.on("socket", () => clearTimeout(connectTimer));
     req.on("error", (e) => {
-      clearTimeout(totalTimer);
-      clearTimeout(connectTimer);
+      clearTimers();
       log.warn(`HTTP 错误 ${url}: ${(e as Error).message}`);
       reject(e);
     });

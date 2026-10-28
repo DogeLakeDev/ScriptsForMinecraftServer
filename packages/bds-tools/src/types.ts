@@ -31,6 +31,8 @@ export interface BdsUpdaterConfig {
 export interface VersionInfo {
   version: string;
   cdnRoot: string;
+  /** 版本号取自 Mojang 官方下载接口时，该版本的官方下载地址；Bedrock-OSS 版本列表来源时为空 */
+  downloadUrl?: string;
 }
 
 export interface VersionDetails {

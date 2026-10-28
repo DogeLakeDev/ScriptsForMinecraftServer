@@ -11,13 +11,69 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { bdsCdnZipSuffix, bdsDetailsPlatformKey, bdsHostOs, type BdsHostOs } from "./host-platform.js";
-import { fetchJsonWithFallback } from "./http.js";
+import { fetchJsonWithFallback, httpGetJson } from "./http.js";
 import { log } from "./log.js";
 import type { BdsUpdaterConfig, VersionDetails, VersionInfo } from "./types.js";
 import { toVer3 } from "./version.js";
 
 const DEFAULT_VERSIONS_API = "https://raw.githubusercontent.com/Bedrock-OSS/BDS-Versions/main/versions.json";
 const DEFAULT_VERSIONS_MIRROR = "https://cdn.jsdelivr.net/gh/Bedrock-OSS/BDS-Versions@main/versions.json";
+
+/**
+ * Mojang 官方下载链接接口：返回各平台当前正式版 / 预览版 BDS 的下载地址（文件名带版本号）。
+ * 使用场景：getVersionInfo 的首选版本源。GitHub raw 在部分网络下不可达，jsDelivr 镜像在新版本发布初期
+ * 会返回旧缓存，导致检查结果时新时旧；官方接口无此问题。
+ */
+const OFFICIAL_LINKS_API = "https://net-secondary.web.minecraft-services.net/api/v1.0/download/links";
+const OFFICIAL_LINKS_TIMEOUT_MS = 15_000;
+
+/** 官方接口解析结果：当前通道与平台的 BDS 版本号及其官方下载地址。 */
+export interface OfficialServerLink {
+  version: string;
+  downloadUrl: string;
+}
+
+/**
+ * 官方接口中当前通道与平台对应的 downloadType，例如 serverBedrockWindows、serverBedrockPreviewLinux。
+ * 使用场景：parseOfficialServerLink 从 links 列表中挑选条目。
+ */
+function officialDownloadType(channel: string, hostOs: BdsHostOs): string {
+  const preview = channel === "preview" ? "Preview" : "";
+  const os = hostOs === "windows" ? "Windows" : "Linux";
+  return `serverBedrock${preview}${os}`;
+}
+
+/**
+ * 从官方接口响应中解析当前通道与平台的 BDS 版本号与下载地址；结构不符或地址中没有版本号时返回 null。
+ * 使用场景：fetchOfficialServerLink；单独导出便于离线校验解析规则。
+ */
+export function parseOfficialServerLink(json: unknown, channel: string, hostOs: BdsHostOs): OfficialServerLink | null {
+  const links = (json as { result?: { links?: unknown } } | null)?.result?.links;
+  if (!Array.isArray(links)) return null;
+  const type = officialDownloadType(channel, hostOs);
+  const entry = links.find((l: { downloadType?: unknown }) => l?.downloadType === type) as
+    | { downloadUrl?: unknown }
+    | undefined;
+  const url = typeof entry?.downloadUrl === "string" ? entry.downloadUrl : "";
+  const m = /bedrock-server-(\d+(?:\.\d+){2,3})(?:-preview)?\.zip$/i.exec(url);
+  return m ? { version: m[1]!, downloadUrl: url } : null;
+}
+
+/**
+ * 请求官方接口并解析当前通道的 BDS 版本；请求失败或解析不到时记录警告并返回 null，由调用方回退到 Bedrock-OSS 版本列表。
+ * 使用场景：getVersionInfo 在 bedrock-oss 模式且未自定义版本列表地址时优先调用。
+ */
+async function fetchOfficialServerLink(channel: string, hostOs: BdsHostOs): Promise<OfficialServerLink | null> {
+  try {
+    const json = await httpGetJson<unknown>(OFFICIAL_LINKS_API, { totalTimeoutMs: OFFICIAL_LINKS_TIMEOUT_MS });
+    const link = parseOfficialServerLink(json, channel, hostOs);
+    if (!link) log.warn("官方下载接口中没有当前通道的 BDS 下载地址，改用 Bedrock-OSS 版本列表");
+    return link;
+  } catch (e) {
+    log.warn(`官方下载接口不可用: ${(e as Error).message}，改用 Bedrock-OSS 版本列表`);
+    return null;
+  }
+}
 
 function resolveTemplate(tpl: string, vars: Record<string, string>): string {
   let s = tpl;
@@ -29,6 +85,8 @@ function resolveTemplate(tpl: string, vars: Record<string, string>): string {
 
 /**
  * 获取 BDS 最新可用版本信息（支持重试与指数退避）。
+ * bedrock-oss 模式且未自定义版本列表地址（version_versions / BDS_VERSIONS_API）时，先查 Mojang 官方下载接口，
+ * 失败再用 Bedrock-OSS 版本列表（GitHub raw 与 jsDelivr 镜像）。
  *
  * @param cfg BDS 更新器配置。
  * @param channel 更新通道（如 "release" 或 "preview"）。
@@ -41,10 +99,17 @@ export async function getVersionInfo(
   channel: string,
   hostOs: BdsHostOs = bdsHostOs()
 ): Promise<VersionInfo> {
-  const api = cfg.version_versions || process.env["BDS_VERSIONS_API"] || DEFAULT_VERSIONS_API;
+  const customApi = cfg.version_versions || process.env["BDS_VERSIONS_API"];
+  const api = customApi || DEFAULT_VERSIONS_API;
   const mirror = cfg.version_versions_mirror || process.env["BDS_VERSIONS_MIRROR"] || DEFAULT_VERSIONS_MIRROR;
   const sources = [api, mirror].filter(Boolean);
   const versionMode = cfg.version_mode || "bedrock-oss";
+
+  // 自定义了版本列表地址或使用 endstone 时尊重原配置，不查官方接口
+  if (versionMode === "bedrock-oss" && !customApi) {
+    const official = await fetchOfficialServerLink(channel, hostOs);
+    if (official) return { version: official.version, cdnRoot: "", downloadUrl: official.downloadUrl };
+  }
 
   let lastErr: unknown;
   for (let attempt = 1; attempt <= 3; attempt++) {

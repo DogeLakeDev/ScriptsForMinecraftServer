@@ -39,6 +39,7 @@ import {
   isVersionCompatible,
   verifyFileHash,
 } from "./upstream.js";
+import type { VersionDetails } from "./types.js";
 import { compareVersions, getCurrentVersionAsync, getCurrentVersionSync, saveVersionCache } from "./version.js";
 import { extractZipFileToDir } from "./zipx.js";
 
@@ -185,9 +186,12 @@ export async function runUpdate(): Promise<number> {
 
   // 2. 获取最新版本
   let latestVer: string;
+  /** 版本号来自 Mojang 官方下载接口时的官方下载地址；Bedrock-OSS 版本详情不可用时作为下载来源 */
+  let officialUrl = "";
   try {
     const info = await getVersionInfo(cfg, channel);
     latestVer = info.version;
+    officialUrl = info.downloadUrl ?? "";
     log.info(`最新版本: ${latestVer}`);
     const cmp = compareVersions(latestVer, currentVer);
     if (cmp <= 0 && !force) {
@@ -220,7 +224,15 @@ export async function runUpdate(): Promise<number> {
   let downloadUrls: string[];
   let hash: { sha1: string; sha256: string };
   try {
-    const details = await fetchVersionDetails(cfg, channel, latestVer);
+    let details: VersionDetails;
+    try {
+      details = await fetchVersionDetails(cfg, channel, latestVer);
+    } catch (e) {
+      // 官方刚发布时 Bedrock-OSS 可能尚未收录该版本，或其源在当前网络不可达：改用官方下载地址，无哈希可校验
+      if (!officialUrl) throw e;
+      log.warn(`版本详情不可用: ${(e as Error).message}，改用官方下载地址（跳过哈希校验）`);
+      details = { downloadUrl: officialUrl, sha1: "", sha256: "", size: 0 };
+    }
     downloadUrls = buildDownloadUrls(cfg, channel, latestVer, details);
     hash = { sha1: details.sha1, sha256: details.sha256 };
   } catch (e) {
