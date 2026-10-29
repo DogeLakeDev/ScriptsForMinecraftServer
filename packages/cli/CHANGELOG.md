@@ -1,5 +1,16 @@
 # @sfmc-bds/cli
 
+## 0.10.7
+
+### Patch Changes
+
+- Updated dependencies [56dbe29]
+  - @sfmc-bds/sdk@0.8.0
+  - @sfmc-bds/bds-tools@0.3.5
+  - @sfmc-bds/db-server@0.9.2
+  - @sfmc-bds/devkit@2.0.12
+  - @sfmc-bds/management@0.9.2
+
 ## 0.10.6
 
 ### Patch Changes
