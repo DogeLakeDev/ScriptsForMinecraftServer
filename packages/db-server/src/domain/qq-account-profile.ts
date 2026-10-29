@@ -24,7 +24,8 @@ export type QqAccountProfile = {
   total_text: string;
 };
 
-type EconomyRow = { account_id?: string; balance?: number; account_type?: string };
+/** sfmc_economy_accounts 的一行（账号页与财富排行共用） */
+export type EconomyRow = { account_id?: string; balance?: number; account_type?: string };
 type OnlineRow = {
   today_seconds?: number;
   month_seconds?: number;
@@ -91,7 +92,11 @@ function safeRows<T>(query: QueryFn, sql: ReturnType<typeof SQL>): T[] | null {
   }
 }
 
-function pickEconomyBalance(rows: EconomyRow[], playerId: string, playerName: string): number | null {
+/**
+ * 从同一玩家的若干账户行里取余额：按 xuid → player:xuid → 玩家名 的优先级命中第一行。
+ * 使用场景：账号页余额；财富排行按玩家合并重复账户行时沿用同一规则，保证两处数字一致。
+ */
+export function pickEconomyBalance(rows: EconomyRow[], playerId: string, playerName: string): number | null {
   if (!rows.length) return 0;
   const prefixed = `player:${playerId}`;
   const order = [playerId, prefixed, playerName].filter((id) => id);

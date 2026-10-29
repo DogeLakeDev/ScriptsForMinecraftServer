@@ -9,7 +9,7 @@
 import type { PlayerHomeSource } from "./player-home-client.js";
 import { requirePlayer, type PlayerAuthDeps } from "./player-auth.js";
 import { WECHAT_DISABLED } from "./player-routes.js";
-import type { Route } from "./routes.js";
+import { intParam, type Route } from "./routes.js";
 import { sendJson } from "./upload.js";
 
 /** 资产路由依赖 */
@@ -19,11 +19,9 @@ export interface PlayerAssetRouteDeps extends PlayerAuthDeps {
 }
 
 function parsePaging(params: URLSearchParams): { limit: number; offset: number } {
-  const limitRaw = Number(params.get("limit"));
-  const offsetRaw = Number(params.get("offset"));
   return {
-    limit: Number.isFinite(limitRaw) ? Math.min(200, Math.max(1, Math.floor(limitRaw))) : 50,
-    offset: Number.isFinite(offsetRaw) ? Math.max(0, Math.floor(offsetRaw)) : 0,
+    limit: intParam(params, "limit", 50, 1, 200),
+    offset: intParam(params, "offset", 0, 0, Number.MAX_SAFE_INTEGER),
   };
 }
 

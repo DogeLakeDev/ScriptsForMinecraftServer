@@ -85,6 +85,19 @@ export async function readJsonBody(request: IncomingMessage): Promise<Record<str
   throw new HttpError(400, "请求体必须是 JSON 对象");
 }
 
+/**
+ * 读取整数查询参数并夹到 [min, max]；参数缺失、为空或不是数字时返回 fallback。
+ * 使用场景：排行、交易记录的 limit / offset。小程序不传的字段会被省略，而 Number(null) 是 0，
+ * 不先判缺失就会被夹成 min（此前排行因此只返回 1 行）。
+ */
+export function intParam(params: URLSearchParams, key: string, fallback: number, min: number, max: number): number {
+  const raw = params.get(key);
+  if (raw == null || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
 /** 从 JSON 请求体取一个字符串字段（去首尾空白，非字符串视为空串） */
 export function stringField(body: Record<string, unknown>, key: string): string {
   const value = body[key];

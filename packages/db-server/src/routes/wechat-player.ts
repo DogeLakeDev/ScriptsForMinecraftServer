@@ -11,18 +11,17 @@
 import { listPlayerLands } from "../domain/player-lands.js";
 import { queryPlayerTransactions } from "../domain/player-transactions.js";
 import { findWechatBindingByOpenid } from "../domain/wechat-bind.js";
-import { json, type QueryFn, type RouteHandler } from "./_shared.js";
+import { intParam, json, type QueryFn, type RouteHandler } from "./_shared.js";
 
 interface Deps {
   query: QueryFn;
 }
 
 function parsePaging(params: URLSearchParams): { limit: number; offset: number } {
-  const limitRaw = Number(params.get("limit"));
-  const offsetRaw = Number(params.get("offset"));
-  const limit = Number.isFinite(limitRaw) ? Math.min(200, Math.max(1, Math.floor(limitRaw))) : 50;
-  const offset = Number.isFinite(offsetRaw) ? Math.max(0, Math.floor(offsetRaw)) : 0;
-  return { limit, offset };
+  return {
+    limit: intParam(params, "limit", 50, 1, 200),
+    offset: intParam(params, "offset", 0, 0, Number.MAX_SAFE_INTEGER),
+  };
 }
 
 /**

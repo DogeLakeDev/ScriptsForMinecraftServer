@@ -8,7 +8,7 @@
  *   PUT  /api/sfmc/rank/public-objectives  { ids: string[] }  （需 AUTH_TOKEN，管理端开关）
  *
  * 使用场景：mp-gateway 玩家端排行页；管理端「在排行中公开」经 CLI 调 PUT。
- * openid 可选：传入且已绑定时附带 myRank。财富与计分项排行依赖内存计分板快照（与 scoreboard 路由共用 store）。
+ * openid 可选：传入且已绑定时附带 myRank。财富读经济账户表；计分项排行依赖内存计分板快照（与 scoreboard 路由共用 store）。
  */
 import { join } from "node:path";
 import { configDir, readJson } from "@sfmc-bds/sdk/node/config";
@@ -16,13 +16,13 @@ import { DEFAULT_ECONOMY_UNIT } from "../domain/qq-account-profile.js";
 import {
   queryObjectiveRank,
   queryOnlineRank,
-  WEALTH_OBJECTIVE_ID,
+  queryWealthRank,
   type OnlineRankMetric,
 } from "../domain/player-rank.js";
 import { readPublicObjectives, writePublicObjectives } from "../domain/rank-public.js";
 import type { ScoreboardStore } from "../domain/scoreboard.js";
 import { findWechatBindingByOpenid } from "../domain/wechat-bind.js";
-import { body, json, type RouteHandler, type QueryFn } from "./_shared.js";
+import { body, intParam, json, type RouteHandler, type QueryFn } from "./_shared.js";
 
 interface Deps {
   query: QueryFn;
@@ -33,11 +33,9 @@ interface Deps {
 
 const METRICS = new Set<OnlineRankMetric>(["today", "month", "total"]);
 
-/** 解析 limit（1–100，默认 50） */
-function parseLimit(raw: string | null): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 50;
-  return Math.min(100, Math.max(1, Math.floor(n)));
+/** 解析 limit（1–100，缺省 50） */
+function parseLimit(params: URLSearchParams): number {
+  return intParam(params, "limit", 50, 1, 100);
 }
 
 /** 按 openid 取绑定的 xuid 与名字；未绑定返回空 */
@@ -90,7 +88,7 @@ export function createRankRoutes({ query, scoreboard, projectRoot, now = Date.no
         return true;
       }
       const { playerId } = bindingOf(query, String(params.get("openid") ?? "").trim());
-      json(res, { success: true, metric, ...queryOnlineRank(query, metric, parseLimit(params.get("limit")), playerId, now()) });
+      json(res, { success: true, metric, ...queryOnlineRank(query, metric, parseLimit(params), playerId, now()) });
       return true;
     }
 
@@ -99,13 +97,8 @@ export function createRankRoutes({ query, scoreboard, projectRoot, now = Date.no
         json(res, { success: false, error: "method_not_allowed" }, 405);
         return true;
       }
-      const { playerName } = bindingOf(query, String(params.get("openid") ?? "").trim());
-      const unit = economyUnit(projectRoot);
-      json(res, {
-        success: true,
-        objectiveId: WEALTH_OBJECTIVE_ID,
-        ...queryObjectiveRank(scoreboard, WEALTH_OBJECTIVE_ID, parseLimit(params.get("limit")), playerName, unit, now()),
-      });
+      const viewer = bindingOf(query, String(params.get("openid") ?? "").trim());
+      json(res, { success: true, ...queryWealthRank(query, parseLimit(params), viewer, economyUnit(projectRoot)) });
       return true;
     }
 
@@ -140,7 +133,7 @@ export function createRankRoutes({ query, scoreboard, projectRoot, now = Date.no
       json(res, {
         success: true,
         objectiveId,
-        ...queryObjectiveRank(scoreboard, objectiveId, parseLimit(params.get("limit")), playerName, "", now()),
+        ...queryObjectiveRank(scoreboard, objectiveId, parseLimit(params), playerName, "", now()),
       });
       return true;
     }

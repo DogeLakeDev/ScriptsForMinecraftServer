@@ -95,6 +95,19 @@ export function jsonV2Ok(
   sharedJson(res, { ...fields, ok: true }, status);
 }
 
+/**
+ * 读取整数查询参数并夹到 [min, max]；参数缺失、为空或不是数字时返回 fallback。
+ * 使用场景：排行 / 流水等接口的 limit、offset。缺失必须走 fallback：Number(null) 与 Number("") 都是 0，
+ * 直接夹取会把「没传 limit」变成 min（此前排行因此只返回 1 行）。
+ */
+export function intParam(params: URLSearchParams, key: string, fallback: number, min: number, max: number): number {
+  const raw = params.get(key);
+  if (raw == null || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
 
 export {};
 

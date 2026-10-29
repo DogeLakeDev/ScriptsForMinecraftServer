@@ -3,17 +3,14 @@
  *
  * 使用场景：
  *   - 在线时长：读 online-time 模块表 sfmc_online_time，跨日 / 跨月清零规则与账号页一致（rollPluginOnlineSeconds）；
- *   - 财富：读内存中的计分板快照里的 sfmc_money（与游戏内余额一致）；
- *   - 公开计分项排行：同一快照按 settings.json 的 rank.publicObjectives 过滤。
+ *   - 财富：读经济模块账户表 sfmc_economy_accounts（与账号页余额同源），按玩家合并重复账户行；
+ *   - 公开计分项排行：读内存中的计分板快照，按 settings.json 的 rank.publicObjectives 过滤。
  * 表不存在或读失败时返回空列表（模块未安装），不抛错。
  */
 import { SQL } from "sql-template-strings";
 import type { QueryFn } from "../lib/sqlite.js";
-import { formatOnlineDuration, rollPluginOnlineSeconds } from "./qq-account-profile.js";
+import { formatOnlineDuration, pickEconomyBalance, rollPluginOnlineSeconds, type EconomyRow } from "./qq-account-profile.js";
 import type { ScoreboardStore } from "./scoreboard.js";
-
-/** 经济余额计分项默认 ID（与 economy 模块 configs-default/economy.json 一致） */
-export const WEALTH_OBJECTIVE_ID = "sfmc_money";
 
 /** 在线时长排行的度量 */
 export type OnlineRankMetric = "today" | "month" | "total";
@@ -132,9 +129,81 @@ export function queryOnlineRank(
   };
 }
 
+/** 账户表一行（含名称快照） */
+type AccountDbRow = EconomyRow & { account_name_snapshot?: string };
+
+/** 当前绑定玩家，用于找「我的名次」；未绑定时两项为空串 */
+export interface RankViewer {
+  playerId: string;
+  playerName: string;
+}
+
+/**
+ * 财富排行：读 sfmc_economy_accounts 的玩家账户。
+ * 同一玩家可能同时有「按 xuid」和「按玩家名」两行账户，这里借 sfmc_online_time 的 xuid ↔ 名字对应关系
+ * 把它们归到同一玩家，再用账号页同一规则（pickEconomyBalance）取余额，避免重复上榜且与「我的」余额一致。
+ * 对不上 xuid 的账户按账户名单独成行；组织账户（如领地金库）不参与；余额为 0 的不上榜。
+ * @param limit 返回前 N 名（1–100）
+ * @param viewer 当前绑定玩家；空串表示不查「我的名次」
+ * @param unit 货币单位（展示用）
+ */
+export function queryWealthRank(query: QueryFn, limit: number, viewer: RankViewer, unit: string): RankPage {
+  const accounts = safeRows<AccountDbRow>(
+    query,
+    SQL`SELECT account_id, account_name_snapshot, balance, account_type
+        FROM sfmc_economy_accounts WHERE (_deleted_at IS NULL)`
+  );
+  if (accounts == null) {
+    return { rows: [], myRank: null, unit, available: false, fresh: false, note: "经济模块未安装或暂时读不到" };
+  }
+  const known =
+    safeRows<OnlineDbRow>(query, SQL`SELECT player_id, player_name FROM sfmc_online_time WHERE (_deleted_at IS NULL)`) ?? [];
+  const nameById = new Map<string, string>();
+  const idByName = new Map<string, string>();
+  for (const row of known) {
+    const id = String(row.player_id ?? "").trim();
+    const name = String(row.player_name ?? "").trim();
+    if (!id || !name) continue;
+    nameById.set(id, name);
+    idByName.set(name, id);
+  }
+
+  // 按玩家归组：能对上 xuid 的用 xuid 作键，否则用账户名
+  const groups = new Map<string, { playerId: string; playerName: string; rows: EconomyRow[] }>();
+  for (const row of accounts) {
+    if (row.account_type && row.account_type !== "player") continue;
+    const accountId = String(row.account_id ?? "").trim();
+    if (!accountId) continue;
+    const bare = accountId.startsWith("player:") ? accountId.slice("player:".length) : accountId;
+    const playerId = nameById.has(bare) ? bare : (idByName.get(bare) ?? "");
+    const playerName = playerId ? nameById.get(playerId)! : String(row.account_name_snapshot || bare);
+    const key = playerId || `name:${playerName}`;
+    const group = groups.get(key) ?? { playerId, playerName, rows: [] };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+
+  const candidates = [...groups.values()].map((group) => {
+    const balance = pickEconomyBalance(group.rows, group.playerId, group.playerName) ?? 0;
+    return {
+      playerId: group.playerId || group.playerName,
+      playerName: group.playerName,
+      value: balance,
+      display: String(balance),
+    };
+  });
+  return {
+    rows: numberRows(candidates, limit),
+    myRank: findMyRank(candidates, viewer.playerId, false) ?? findMyRank(candidates, viewer.playerName, true),
+    unit,
+    available: true,
+    fresh: true,
+  };
+}
+
 /**
  * 从计分板快照取某一计分项的玩家排行（只含 type=player 的参与者）。
- * 使用场景：财富排行（sfmc_money）与公开计分项排行。
+ * 使用场景：公开计分项排行。
  * @param playerName 当前绑定玩家名（计分板没有 xuid，按名字找「我的名次」）
  */
 export function queryObjectiveRank(

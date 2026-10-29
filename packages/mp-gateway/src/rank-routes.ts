@@ -11,7 +11,7 @@
 import type { PlayerHomeSource } from "./player-home-client.js";
 import { requirePlayer, type PlayerAuthDeps } from "./player-auth.js";
 import { WECHAT_DISABLED } from "./player-routes.js";
-import { HttpError, type Route } from "./routes.js";
+import { HttpError, intParam, type Route } from "./routes.js";
 import { sendJson } from "./upload.js";
 
 /** 排行路由依赖 */
@@ -20,10 +20,9 @@ export interface RankRouteDeps extends PlayerAuthDeps {
   home: PlayerHomeSource;
 }
 
-function parseLimit(raw: string | null): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 50;
-  return Math.min(100, Math.max(1, Math.floor(n)));
+/** 解析 limit（1–100，缺省 50） */
+function parseLimit(params: URLSearchParams): number {
+  return intParam(params, "limit", 50, 1, 100);
 }
 
 /**
@@ -42,7 +41,7 @@ export function createRankRoutes(deps: RankRouteDeps): Route[] {
         if (metric !== "today" && metric !== "month" && metric !== "total") {
           throw new HttpError(400, "metric 须为 today / month / total");
         }
-        sendJson(context.response, 200, await deps.home.onlineRank(metric, parseLimit(context.url.searchParams.get("limit")), openid));
+        sendJson(context.response, 200, await deps.home.onlineRank(metric, parseLimit(context.url.searchParams), openid));
       },
     },
     {
@@ -51,7 +50,7 @@ export function createRankRoutes(deps: RankRouteDeps): Route[] {
       async handle(context) {
         if (!deps.wechatEnabled) throw WECHAT_DISABLED;
         const { openid } = requirePlayer(deps, context);
-        sendJson(context.response, 200, await deps.home.wealthRank(parseLimit(context.url.searchParams.get("limit")), openid));
+        sendJson(context.response, 200, await deps.home.wealthRank(parseLimit(context.url.searchParams), openid));
       },
     },
     {
@@ -68,7 +67,7 @@ export function createRankRoutes(deps: RankRouteDeps): Route[] {
         sendJson(
           context.response,
           200,
-          await deps.home.scoreboardRank(objectiveId, parseLimit(context.url.searchParams.get("limit")), openid)
+          await deps.home.scoreboardRank(objectiveId, parseLimit(context.url.searchParams), openid)
         );
       },
     },
