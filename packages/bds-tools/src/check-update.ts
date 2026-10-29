@@ -377,13 +377,17 @@ export async function runUpdate(): Promise<number> {
     log.error(`下载失败: ${(e as Error).message}`);
     await sendText(`❌ BDS 更新失败\n\n下载失败: ${(e as Error).message}\nBDS 已停止，请手动恢复`);
     // 自动回滚
-    rollbackFromBackup({
+    const rollback = rollbackFromBackup({
       timestamp: Date.now(),
       bds_path: bdsPath,
       backup_dir: backupInfo.path,
       preserve,
       previous_version: currentVer,
     });
+    // 下载阶段尚未清空 BDS 目录，回滚成功即已恢复原状；残留标记会让之后手动 recovery 用旧备份覆盖新存档。
+    // 回滚失败时保留标记，供手动 recovery 重试。
+    if (rollback.ok) clearRollbackMarker();
+    else log.error(`自动回滚失败: ${rollback.reason}`);
     rmSafe(stagingDir);
     return 1;
   }
