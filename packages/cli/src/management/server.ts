@@ -20,7 +20,7 @@ import { withMaintenanceLock } from "@sfmc-bds/management/node";
 import { deploymentPreflight, deploymentPort } from "./deployment.js";
 import { resolveBdsContext } from "../pack-lifecycle.js";
 import { readRuntimeMetrics } from "./metrics-read.js";
-import { applyScoreboard, readScoreboard } from "./scoreboard.js";
+import { applyScoreboard, readPublicObjectives, readScoreboard, setPublicObjective } from "./scoreboard.js";
 import { LOCAL_CAPABILITIES } from "./local-methods.js";
 
 import { importPacks, planPackImport, readImportFilenames } from "./pack-import.js";
@@ -264,6 +264,8 @@ export async function dispatchManagement(request: ManagementRequest): Promise<un
     case "metrics.read": return readRuntimeMetrics(request.params);
     case "scoreboard.read": return readScoreboard(request.params);
     case "scoreboard.apply": return applyScoreboard(request.params, line => sendServiceLine("bds", line));
+    case "scoreboard.publicObjectives": return readPublicObjectives();
+    case "scoreboard.setPublicObjective": return setPublicObjective(request.params);
     case "activity.query": return readActivityPage(businessDatabase(), parseActivityFilter(p), parseActivityPaging(p));
     case "activity.stats": return readActivityStats(businessDatabase(), parseActivityFilter(p));
     case "players.apply": return store.submit(request.method, context => withStoppedServices(context, [...START_ORDER], async () => savePlayerPermissions(string(p.kind, "权限类型"), p.entries)));

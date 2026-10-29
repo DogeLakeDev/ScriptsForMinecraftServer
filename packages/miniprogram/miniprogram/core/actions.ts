@@ -6,6 +6,7 @@
  * 请求失败时错误留在弹窗里可重试（与桌面端 submit 语义一致）；受理后交给会话层跟踪任务结果。
  */
 import { errorText } from "./format";
+import { paletteColor } from "./palette";
 import { activeTasks, session } from "./session";
 import type { ManagementMethod } from "./types";
 
@@ -119,7 +120,8 @@ export function askChoice(title: string, content: string, confirmText = "确定"
       title,
       content,
       confirmText,
-      ...(danger ? { confirmColor: "#d92d2d" } : {}),
+      // 危险操作的确认按钮用色板的 iOS 红（Accents/Red），随当前主题取值
+      ...(danger ? { confirmColor: paletteColor("--c-danger") } : {}),
       success: (result) => resolve(result.confirm ? { kind: "confirm" } : { kind: "cancel" }),
       fail: (error) => {
         console.warn("[ask] showModal 失败", error);

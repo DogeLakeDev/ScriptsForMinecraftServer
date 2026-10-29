@@ -4,6 +4,8 @@
     "pages/map/map",
     "pages/rank/rank",
     "pages/me/me",
+    "pages/lands/lands",
+    "pages/transactions/transactions",
     "pages/activity/activity"
   ],
   "subPackages": [
@@ -24,6 +26,7 @@
         "pages/players/players",
         "pages/activity/activity",
         "pages/scoreboard/scoreboard",
+        "pages/scoreboard-objective/scoreboard-objective",
         "pages/updates/updates",
         "pages/devices/devices"
       ]
@@ -45,6 +48,7 @@
     "backgroundTextStyle": "@bgText"
   },
   "tabBar": {
+    "custom": true,
     "color": "@tabText",
     "selectedColor": "@tabSelected",
     "backgroundColor": "@tabBg",

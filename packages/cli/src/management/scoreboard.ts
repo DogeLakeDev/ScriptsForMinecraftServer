@@ -15,6 +15,7 @@ import {
   type ScoreboardApplyResult,
   type ScoreboardOperation,
   type ScoreboardParticipant,
+  type ScoreboardPublicObjectivesResult,
   type ScoreboardReadResult,
 } from "@sfmc-bds/management";
 import type { ScoreboardReadView } from "@sfmc-bds/db-server/scoreboard";
@@ -145,4 +146,50 @@ export async function applyScoreboard(params: unknown, send: ConsoleSender): Pro
   const commands = operations.map(scoreboardCommand);
   for (const command of commands) await send(command);
   return { commands, sentAt: Date.now() };
+}
+
+/** 调用 db-server 的公开计分项接口；数据服务未运行时抛错（与读写配置一致，不能静默丢开关） */
+async function callPublicObjectives(method: "GET" | "PUT", body?: { ids: string[] }): Promise<string[]> {
+  const cfg = dbConfig(getRoot());
+  const headers: Record<string, string> = { ...(cfg.http_auth ? { authorization: `Bearer ${cfg.http_auth}` } : {}) };
+  if (body) headers["content-type"] = "application/json";
+  let response: Response;
+  try {
+    response = await fetch(`http://127.0.0.1:${cfg.db_port ?? 3001}/api/sfmc/rank/public-objectives`, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch (error) {
+    if (offline(error)) throw new Error("数据服务未运行，无法读写排行公开名单");
+    throw error;
+  }
+  const data = (await response.json()) as { success?: boolean; ids?: unknown; message?: string };
+  if (!response.ok || data.success !== true || !Array.isArray(data.ids)) {
+    throw new Error(typeof data.message === "string" ? data.message : "读写排行公开名单失败");
+  }
+  return data.ids.map((id) => String(id));
+}
+
+/** 管理协议 scoreboard.publicObjectives：读取玩家端排行公开的计分项 id 列表 */
+export async function readPublicObjectives(): Promise<ScoreboardPublicObjectivesResult> {
+  return { ids: await callPublicObjectives("GET") };
+}
+
+/**
+ * 管理协议 scoreboard.setPublicObjective：把某个计分项加入或移出公开名单。
+ * 使用场景：管理端计分项详情页的开关；先读再写，避免覆盖其他计分项。
+ */
+export async function setPublicObjective(params: unknown): Promise<ScoreboardPublicObjectivesResult> {
+  if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("参数必须为对象");
+  const objectiveId = String((params as { objectiveId?: unknown }).objectiveId ?? "").trim();
+  const makePublic = (params as { public?: unknown }).public;
+  if (!objectiveId) throw new Error("请提供计分项 ID");
+  if (typeof makePublic !== "boolean") throw new Error("public 必须为布尔值");
+  const current = await callPublicObjectives("GET");
+  const next = makePublic
+    ? [...new Set([...current, objectiveId])]
+    : current.filter((id) => id !== objectiveId);
+  return { ids: await callPublicObjectives("PUT", { ids: next }) };
 }

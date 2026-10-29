@@ -4,14 +4,15 @@
  * 使用场景：
  * - 微信静默登录（wx.login → 网关换会话），展示绑定的游戏角色、SFMC 等级、余额与在线时长；
  * - 未绑定时申请 6 位绑定码，玩家在游戏内 /c:bind 后在聊天框发送；页面轮询直到绑定完成；
- * - 已绑定时提供「我的行为记录」入口；
+ * - 已绑定时提供「我的领地」「交易记录」「我的行为记录」入口；
  * - 始终显示「进入管理端」：3 级管理员以微信身份管理，其他用户用访问令牌添加 / 管理实例；
  *   管理员还可扫码 / 输入登录码批准桌面端登录。
  */
 import { ask, askChoice, guard } from "../../core/actions";
 import { enterAdmin } from "../../core/admin-entry";
-import { errorText } from "../../core/format";
+import { errorText, fullTime, hashHue } from "../../core/format";
 import { homePlayerApi, type BindCode, type DeviceRef, type PlayerMe } from "../../core/player-api";
+import { selectPlayerTab } from "../../core/player-tabs";
 import { HOME_SERVER, hasHomeServer, homeEndpoint } from "../../core/server";
 import { parseDeviceLoginLink } from "../../vendor/management";
 
@@ -26,18 +27,23 @@ let ticker: number | null = null;
 /** 上次轮询绑定结果的时间 */
 let lastPoll = 0;
 
-/** 把 /player/me 的结果转换为页面数据 */
+/** 把 /player/me 的结果转换为页面数据（不含领地摘要） */
 function accountView(me: PlayerMe | null) {
   const profile = me?.profile ?? null;
+  const name = me?.player?.name ?? "";
   return {
     bound: Boolean(me?.bound),
-    playerName: me?.player?.name ?? "",
+    playerName: name,
+    /** 头像首字母与色相（与地图 / 排行榜同色） */
+    initial: name ? name.slice(0, 1).toUpperCase() : "?",
+    hue: name ? hashHue(name) : 210,
     levelLabel: me?.bound ? (LEVEL_LABELS[me.level] ?? `等级 ${me.level}`) : "",
     isAdmin: Boolean(me?.isAdmin),
-    balanceText: profile ? (profile.balance === null ? "暂时读不到" : `${profile.balance} ${profile.unit}`) : "",
-    todayText: profile?.today_text ?? "",
-    monthText: profile?.month_text ?? "",
-    totalText: profile?.total_text ?? "",
+    boundAtText: me?.player?.boundAt ? `绑定于 ${fullTime(me.player.boundAt)}` : "",
+    balanceText: profile ? (profile.balance === null ? "暂时读不到" : `${profile.balance} ${profile.unit}`) : "—",
+    todayText: profile?.today_text || "—",
+    monthText: profile?.month_text || "—",
+    totalText: profile?.total_text || "—",
   };
 }
 
@@ -54,6 +60,9 @@ Page({
     loading: true,
     error: "",
     ...accountView(null),
+    /** 领地块数与是否有欠费（「我的资产」行尾） */
+    landCount: 0,
+    landDelinquent: false,
     /** 当前有效的绑定码（空表示未申请或已失效） */
     bindCode: "",
     bindExpiresAt: 0,
@@ -61,6 +70,7 @@ Page({
     requesting: false,
   },
   onShow() {
+    selectPlayerTab(this);
     void this.load();
     this.startTicker();
   },
@@ -75,18 +85,30 @@ Page({
     wx.stopPullDownRefresh();
   },
 
-  /** 读取账号信息；失败时页面显示错误与重试 */
+  /** 读取账号信息与领地摘要；失败时页面显示错误与重试 */
   async load() {
     if (!this.data.configured) {
-      this.setData({ loading: false, ...accountView(null) });
+      this.setData({ loading: false, landCount: 0, landDelinquent: false, ...accountView(null) });
       return;
     }
     try {
-      const me = await homePlayerApi().me();
+      const api = homePlayerApi();
+      const me = await api.me();
       this.applyAccount(me);
-      this.setData({ loading: false, error: "" });
+      let landCount = 0;
+      let landDelinquent = false;
+      if (me.bound) {
+        try {
+          const lands = await api.lands();
+          landCount = lands.lands.length;
+          landDelinquent = lands.lands.some((land) => land.status === "delinquent" || land.upkeepDue > 0);
+        } catch {
+          // 领地摘要失败不影响账号主信息
+        }
+      }
+      this.setData({ loading: false, error: "", landCount, landDelinquent });
     } catch (error) {
-      this.setData({ loading: false, error: errorText(error), ...accountView(null) });
+      this.setData({ loading: false, error: errorText(error), landCount: 0, landDelinquent: false, ...accountView(null) });
     }
   },
 
@@ -157,6 +179,16 @@ Page({
   /** 进入「我的行为记录」 */
   openActivity() {
     wx.navigateTo({ url: "/pages/activity/activity" });
+  },
+
+  /** 进入「我的领地」 */
+  openLands() {
+    wx.navigateTo({ url: "/pages/lands/lands" });
+  },
+
+  /** 进入「交易记录」 */
+  openTransactions() {
+    wx.navigateTo({ url: "/pages/transactions/transactions" });
   },
 
   /** 批准桌面端登录：选择扫码或输入登录码 */

@@ -1,7 +1,9 @@
 /*
- * base.wxss — 页面通用版式与组件类（移动端 SnowUI）
+ * base.wxss — 页面通用版式与组件类（iOS 27 风格，规格取自 Figma「iOS 27 Builder」）
  *
- * 规范沿用桌面端：正文 14/20、元信息 12/16；字重只用 400 / 600；圆角 6 / 8 / 12 / 16 / 20；0.5px 发丝线。
+ * 版式：分组列表（inset grouped）——灰色页面底上放 26 圆角的白色分组卡片，左右边距 16；
+ * 文字用 tokens.wxss 的 iOS 字号阶梯（列表行 Body 17/22，副标题 Subheadline 15/20，说明 Footnote 13/18）；
+ * 控件：胶囊按钮（Bordered = 灰底强调色字，Prominent = 强调色底白字）、64×28 绿色开关、胶囊分段控件。
  * 页面与开启 addGlobalClass 的自定义组件都可直接使用这些类。
  */
 
@@ -12,35 +14,40 @@
   padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
-/* 标签页：原生标签栏位于页面之外并自行处理底部安全区，页面不再额外留出 */
-.page.with-tabbar {
-  padding-bottom: 24px;
-}
-/* 管理端一级页面：底部导航 admin-nav 固定在页面之上，需要预留导航高度与底部安全区 */
-.page.with-admin-nav {
-  padding-bottom: calc(24px + var(--admin-nav-height) + env(safe-area-inset-bottom));
+/*
+ * 带底部悬浮标签栏的页面：玩家端标签页（custom-tab-bar）与管理端一级页面（admin-nav）。
+ * 标签栏浮在页面之上（自定义标签栏不占页面高度），页面底部让出标签栏占用的高度（见 tokens.wxss 的 --tab-bar-space）
+ */
+.page.with-tabbar,
+.page.with-admin-nav,
+.page.with-dock {
+  padding-bottom: calc(24px + var(--tab-bar-space));
 }
 .page-head {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 0 4px;
 }
 .page-head-text {
   flex: 1;
   min-width: 0;
 }
+/* 页面内大标题：保留原生导航栏，在内容顶部模仿 iOS Large Title */
 .page-title {
-  font-size: 20px;
-  line-height: 28px;
-  font-weight: 600;
+  font-size: var(--fs-large-title);
+  line-height: var(--lh-large-title);
+  letter-spacing: var(--ls-large-title);
+  font-weight: 700;
 }
 .page-desc {
   margin-top: 2px;
   color: var(--c-text-3);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .row {
   display: flex;
@@ -53,12 +60,17 @@
 .spacer {
   flex: 1;
 }
+/* 占满剩余宽度且允许收缩（输入框、搜索框与按钮同行时）；控制台、实例编辑页共用 */
+.flex1 {
+  flex: 1;
+  min-width: 0;
+}
 .muted {
   color: var(--c-text-3);
 }
 .small {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
 }
 .mono {
   font-family: var(--font-mono);
@@ -76,9 +88,9 @@
   font-weight: 600;
 }
 .link {
-  color: var(--c-info-text);
-  font-size: 12px;
-  line-height: 16px;
+  color: var(--c-link);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
 }
 .selectable {
   user-select: text;
@@ -105,6 +117,16 @@
   width: 20px;
   height: 20px;
 }
+/* 列表行尾的展开箭头：iOS Drill-in 用三级文字色（Labels/Tertiary） */
+.i-chevron-right.muted,
+.i-chevron-down.muted {
+  color: var(--c-text-4);
+  /* 箭头在 24 格里只占中间 6×12，按 13px 绘制时只剩 3×6、描边约 1px，几乎看不见；
+     按 20px 绘制约 5×10（接近 iOS Drill-in 箭头），右侧留白用负外边距抵掉，让箭头贴近行尾内边距 */
+  width: 20px;
+  height: 20px;
+  margin-right: -4px;
+}
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -114,81 +136,129 @@
   }
 }
 
-/* ---------- 区块（Surface） ---------- */
+/* ---------- 分组卡片（Surface = inset grouped 的一个 Section） ---------- */
 .surface {
   background: var(--c-block);
-  border-radius: 20px;
+  border-radius: var(--radius-xxl);
   overflow: hidden;
 }
-.surface-head {
+/* 卡片标题一律放在卡片外（见下方 .section-header），卡片内只放内容 */
+.surface-body {
+  padding: 12px 16px 16px;
+}
+/* 列表容器：行贴边排列，按下高亮铺满整行，首尾行由卡片圆角裁切 */
+.surface-list {
+  padding: 0;
+}
+
+/*
+ * 分组：卡片外的分组标题 + 卡片 + 分组脚注，对应 iOS 列表的 Section header / footer。
+ * 使用场景：玩家端「我的」与管理端各页的分组，标题不放进卡片里；标题行右侧可放链接、徽章或小号按钮。
+ */
+.section {
+  display: flex;
+  flex-direction: column;
+}
+/* 分组标题行：左侧 .section-title 占满剩余宽度，右侧依次排列操作 */
+.section-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 16px 4px;
+  padding: 0 16px 8px;
 }
-.surface-title {
+/* 分组标题文字：iOS 27 Header（Nested），Semibold 17/22、二级文字色（字重只给标题，不让右侧按钮继承） */
+.section-title {
   flex: 1;
   min-width: 0;
+  color: var(--c-text-2);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
   font-weight: 600;
 }
-.surface-sub {
-  color: var(--c-text-3);
-  font-size: 12px;
-  line-height: 16px;
+/* 标题下的一行说明（同步时间、计分项 ID 等）：Footnote、三级文字色、常规字重 */
+.section-sub {
   margin-top: 2px;
+  color: var(--c-text-3);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  letter-spacing: var(--ls-footnote);
+  font-weight: 400;
 }
-.surface-body {
-  padding: 8px 16px 16px;
-}
-.surface-list {
-  padding: 4px 8px 8px;
+/* 分组脚注：iOS 27 Grouped Table Footer，Footnote 13/16、二级文字色 */
+.section-footer {
+  padding: 8px 16px 0;
+  color: var(--c-text-2);
+  font-size: var(--fs-footnote);
+  line-height: 16px;
+  letter-spacing: var(--ls-footnote);
 }
 
-/* ---------- 色块图标 ---------- */
+/* ---------- 图标底块（iOS 设置页的 Symbol Tile：30×30、圆角 7，实色底 + 白色图标） ---------- */
 .tile {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   background: var(--c-pastel-1);
   color: var(--c-on-pastel);
 }
+.tile > .i {
+  width: 18px;
+  height: 18px;
+}
+/* 小号底块（弹窗标题等）：圆角按 Symbol Tile 的 7/30 比例缩放 */
 .tile-sm {
   width: 24px;
   height: 24px;
+  border-radius: 6px;
+}
+.tile-sm > .i {
+  width: 14px;
+  height: 14px;
+}
+/* 大号底块（空状态、连接提示）：Symbol Tile 的 Tall 尺寸 44×44、圆角 11，图标 28 */
+.tile-lg {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+}
+.tile-lg > .i {
+  width: 28px;
+  height: 28px;
 }
 .tile-pastel-2 {
   background: var(--c-pastel-2);
 }
 .tile-neutral {
-  background: var(--c-fill-2);
-  color: var(--c-text-2);
+  background: var(--c-gray);
+  color: var(--c-on-tint);
 }
 .tile-success {
-  background: var(--c-success-soft);
-  color: var(--c-success-text);
+  background: var(--c-success);
+  color: var(--c-on-tint);
 }
 .tile-info {
-  background: var(--c-info-soft);
-  color: var(--c-info-text);
+  background: var(--c-info);
+  color: var(--c-on-tint);
 }
 .tile-warning {
-  background: var(--c-warning-soft);
-  color: var(--c-warning-text);
+  background: var(--c-warning);
+  color: var(--c-on-tint);
 }
 .tile-danger {
-  background: var(--c-danger-soft);
-  color: var(--c-danger-text);
+  background: var(--c-danger);
+  color: var(--c-on-tint);
 }
 .tile-progress,
 .tile-accent {
-  background: var(--c-progress-soft);
-  color: var(--c-progress-text);
+  background: var(--c-progress);
+  color: var(--c-on-tint);
 }
-/* 多色底块：设置类入口每行一种颜色（参考 Android 16 设置首页），底色与图标为同色相的一对 M3 色调 */
+/* 多色底块：设置类入口每行一种颜色（iOS 设置页：Wi-Fi 蓝、专注紫、电池绿……） */
 .tile-blue {
   background: var(--c-tile-blue);
   color: var(--c-on-tile-blue);
@@ -214,27 +284,27 @@
   color: var(--c-on-tile-pink);
 }
 
-/* ---------- 列表行 ---------- */
+/* ---------- 列表行（iOS 27 Row：单行 52、带副标题 68，左右内边距 16） ---------- */
 .list-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
-  padding: 8px;
-  border-radius: 12px;
+  min-height: 52px;
+  padding: 13px 16px;
   box-sizing: border-box;
 }
 .list-item.hover {
-  background: var(--c-fill);
+  background: var(--c-fill-2);
 }
 .list-item + .list-item {
   position: relative;
 }
+/* 分隔线从文字起点画到行尾：内边距 16 + 底块 30 + 间距 12 */
 .list-item + .list-item::before {
   content: "";
   position: absolute;
-  left: 52px;
-  right: 8px;
+  left: 58px;
+  right: 0;
   top: 0;
   border-top: 0.5px solid var(--c-line);
 }
@@ -247,24 +317,73 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
 }
 .list-title > .truncate {
-  font-weight: 600;
+  font-weight: 400;
 }
 .list-sub {
-  margin-top: 2px;
   color: var(--c-text-3);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .list-end {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: none;
+  color: var(--c-text-3);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+/* 行尾的上下两行（徽章 + 时间等），右对齐；任务页、名单页共用 */
+.list-end-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: none;
 }
 .muted-row {
   opacity: 0.6;
+}
+
+/* ---------- 头像（玩家名首字母圆标，尺寸同 Symbol Tile，分隔线与图标行对齐） ---------- */
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  color: var(--c-on-tint);
+  font-size: var(--fs-subheadline);
+  font-weight: 600;
+}
+.avatar-sm {
+  width: 24px;
+  height: 24px;
+  font-size: var(--fs-caption-1);
+}
+
+/* ---------- 统计数字（标签 + 大号数字），行为日志、计分板的统计格共用 ---------- */
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* 统计数值：iOS Title 3 */
+.stat-value {
+  font-size: var(--fs-title-3);
+  line-height: var(--lh-title-3);
+  letter-spacing: var(--ls-title-3);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 徽章 / 状态点 ---------- */
@@ -275,33 +394,38 @@
   flex: none;
   height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--c-fill);
   color: var(--c-text-2);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-caption-1);
+  line-height: var(--lh-caption-1);
+  letter-spacing: 0;
   white-space: nowrap;
   font-weight: 400;
 }
+/*
+ * 带语气的徽章（状态标签）：iOS tinted 样式，底色与文字同一色系——强调色浅色底（--c-*-tint）+ 强调色文字，
+ * 如运行中为绿底绿字、失败为红底红字；不带语气的徽章（分类、计数）保持灰色填充底 + 二级文字色。
+ */
 .badge.tone-success {
-  background: var(--c-success-soft);
+  background: var(--c-success-tint);
   color: var(--c-success-text);
 }
 .badge.tone-info {
-  background: var(--c-info-soft);
+  background: var(--c-info-tint);
   color: var(--c-info-text);
 }
 .badge.tone-warning {
-  background: var(--c-warning-soft);
+  background: var(--c-warning-tint);
   color: var(--c-warning-text);
 }
 .badge.tone-danger {
-  background: var(--c-danger-soft);
+  background: var(--c-danger-tint);
   color: var(--c-danger-text);
 }
 .badge.tone-progress,
 .badge.tone-accent {
-  background: var(--c-progress-soft);
+  background: var(--c-progress-tint);
   color: var(--c-progress-text);
 }
 .dot {
@@ -331,6 +455,22 @@
 .dot.pulse {
   animation: pulse 1.6s ease-in-out infinite;
 }
+/*
+ * 中性的说明文字：二级文字色，没有胶囊底色（对应 iOS 列表的 Detail 文字）。
+ * 带语气的状态（运行中、已连接、检查失败……）用 .badge.tone-* 的同色系浅底标签；这里只放不分好坏的数量说明。
+ * 使用场景：更新页备份分组标题旁的「N 份」。
+ */
+.status {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--c-text-2);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
+  font-weight: 400;
+  white-space: nowrap;
+}
 @keyframes pulse {
   50% {
     opacity: 0.35;
@@ -352,19 +492,25 @@
   color: var(--c-text-3);
 }
 
-/* ---------- 按钮（不用原生 button，避免各端默认样式） ---------- */
+/*
+ * ---------- 按钮（不用原生 button，避免各端默认样式） ----------
+ * 对应 iOS 27 Button 的样式：.btn = Bordered（Fills/Tertiary 底 + 强调色文字），.btn-primary = Bordered Prominent，
+ * .btn-ghost = Borderless；尺寸：.btn-sm = Small 28、.btn = Medium 34、.btn-lg = Large 50，全部为胶囊形。
+ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   flex: none;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 10px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
   background: var(--c-fill);
-  color: var(--c-text);
-  font-size: 14px;
+  color: var(--c-accent);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
   white-space: nowrap;
   box-sizing: border-box;
 }
@@ -373,26 +519,29 @@
 }
 .btn-sm {
   height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 0 12px;
   gap: 4px;
 }
 .btn-lg {
-  height: 44px;
-  padding: 0 18px;
-  border-radius: 12px;
+  height: 50px;
+  padding: 0 24px;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
 }
 .btn-block {
   display: flex;
   width: 100%;
 }
 .btn-icon {
-  width: 36px;
+  width: 34px;
   padding: 0;
 }
 .btn-sm.btn-icon {
   width: 28px;
+}
+.btn-lg.btn-icon {
+  width: 50px;
 }
 .btn-primary {
   background: var(--c-primary);
@@ -405,9 +554,16 @@
 .btn-ghost {
   background: transparent;
 }
+.btn-ghost.hover {
+  background: var(--c-fill);
+}
 .btn-danger {
   background: var(--c-danger);
   color: var(--c-on-danger);
+}
+.btn-danger.hover {
+  opacity: 0.86;
+  background: var(--c-danger);
 }
 .btn-danger-soft {
   background: var(--c-danger-soft);
@@ -416,15 +572,57 @@
 .btn.disabled {
   opacity: 0.4;
 }
+/*
+ * 圆圈描边的符号按钮：对应 iOS 的 *.circle 符号（如 ellipsis.circle），圆圈画在按钮上，里面放普通图标。
+ * 使用场景：实例状态页「服务」分组标题的更多操作（⋯）。
+ */
+.btn-circle {
+  border: 1.5px solid currentColor;
+}
 
-/* ---------- 开关（与桌面端 Switch 同样式） ---------- */
+/*
+ * 分组标题行里的按钮：iOS Section Header 的操作是无底色的强调色文字 / 符号（如「编辑」「查看全部」），不用胶囊按钮。
+ * 按下时变淡（iOS Plain 按钮的高亮）；btn-primary 用加粗表示主要操作，btn-danger-soft 用红色文字。
+ * 使用场景：实例状态页「启动全部」、更新页备份的刷新与手动备份、计分板的新建 / 删除 / 添加。
+ */
+.section-header .btn {
+  padding: 0;
+  background: transparent;
+  color: var(--c-accent);
+}
+.section-header .btn.hover {
+  background: transparent;
+  opacity: 0.4;
+}
+.section-header .btn-primary {
+  font-weight: 600;
+}
+.section-header .btn-danger-soft {
+  color: var(--c-danger);
+}
+/* 标题行的纯符号按钮：符号按 Body 字号的 SF Symbol 绘制（约 20px），点按区域仍为 28×28 */
+.section-header .btn-icon > .i {
+  width: 20px;
+  height: 20px;
+}
+/* 标题行的圆圈符号：圆圈 22px，里面的符号缩小到 14px（与 ellipsis.circle 的比例一致） */
+.section-header .btn-circle {
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+}
+.section-header .btn-circle > .i {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---------- 开关（iOS 27 Toggle：64×28，旋钮 39×24，打开为系统绿） ---------- */
 .switch {
   position: relative;
   flex: none;
-  width: 40px;
-  height: 24px;
-  padding: 2px;
-  border-radius: 999px;
+  width: 64px;
+  height: 28px;
+  border-radius: var(--radius-full);
   background: var(--c-text-4);
   box-sizing: border-box;
   transition: background 0.2s;
@@ -434,31 +632,32 @@
   position: absolute;
   left: 2px;
   top: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
+  width: 39px;
+  height: 24px;
+  border-radius: var(--radius-full);
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .switch.on {
-  background: var(--c-primary);
+  background: var(--c-toggle-on);
 }
 .switch.on::after {
-  transform: translateX(16px);
-  background: var(--c-on-primary);
+  transform: translateX(21px);
 }
 .switch.disabled {
   opacity: 0.4;
 }
 
-/* ---------- 分段选择 ---------- */
+/* ---------- 分段选择（iOS 27 Segmented Control：32 高胶囊，内边距 2，选中块白底） ---------- */
 .segmented {
   display: flex;
+  height: 32px;
   padding: 2px;
-  gap: 2px;
-  border-radius: 10px;
+  gap: 4px;
+  border-radius: var(--radius-full);
   background: var(--c-fill);
+  box-sizing: border-box;
 }
 .segmented-item {
   flex: 1;
@@ -466,18 +665,18 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 30px;
-  padding: 0 8px;
-  border-radius: 8px;
-  color: var(--c-text-2);
-  font-size: 13px;
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: var(--radius-xl);
+  color: var(--c-text);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  letter-spacing: var(--ls-footnote);
   white-space: nowrap;
 }
 .segmented-item.active {
-  background: var(--c-block);
-  color: var(--c-text);
+  background: var(--c-segmented-selected);
   font-weight: 600;
-  box-shadow: 0 0 0 0.5px var(--c-line), 0 1px 3px rgba(28, 28, 28, 0.06);
 }
 .segmented-count {
   min-width: 16px;
@@ -491,15 +690,19 @@
   text-align: center;
   font-weight: 400;
 }
+/* 需要处理的数量（如待处理项）：红色同色系浅底红字，同 .badge.tone-danger */
 .segmented-count.danger {
-  background: var(--c-danger-soft);
+  background: var(--c-danger-tint);
   color: var(--c-danger-text);
 }
 
-/* ---------- 筛选胶囊 ---------- */
+/*
+ * ---------- 筛选胶囊（iOS 27「邮件」分类筛选） ----------
+ * 卡片内：未选为填充色灰底；页面底色上：未选为玻璃底（.chip-glass）。选中一律为反色实底（深色胶囊白字）。
+ */
 .chips {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
 }
 .chip {
@@ -508,97 +711,137 @@
   gap: 4px;
   flex: none;
   height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--c-block);
-  color: var(--c-text-2);
-  font-size: 12px;
-  box-shadow: inset 0 0 0 0.5px var(--c-line);
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  background: var(--c-fill);
+  color: var(--c-text);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .chip.active {
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-  box-shadow: none;
+  background: var(--c-inverse);
+  color: var(--c-on-inverse);
 }
 .chip-count {
   opacity: 0.7;
 }
 
 /* ---------- 输入 ---------- */
+/* 搜索框（iOS 27 Search Field：48 高胶囊，放大镜 + Body 17 文字） */
 .search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: var(--c-block);
+  gap: 6px;
+  height: 48px;
+  padding: 0 12px 0 14px;
+  border-radius: var(--radius-full);
+  background: var(--c-fill);
   color: var(--c-text-3);
   box-sizing: border-box;
+}
+.search > .i {
+  width: 18px;
+  height: 18px;
 }
 .search input {
   flex: 1;
   min-width: 0;
-  height: 36px;
+  height: 48px;
   color: var(--c-text);
-  font-size: 14px;
+  font-size: var(--fs-body);
+  letter-spacing: var(--ls-body);
 }
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+/* 表单字段的标题与说明缩进 16，与输入框里的文字对齐 */
 .field-label {
+  padding: 0 16px;
   color: var(--c-text-2);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  letter-spacing: var(--ls-footnote);
 }
+/* 输入框（iOS 27 Text Field：52 高的单行分组卡片） */
 .field-input {
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 12px;
+  height: 52px;
+  padding: 0 16px;
+  border-radius: var(--radius-xxl);
   background: var(--c-block);
   color: var(--c-text);
-  font-size: 15px;
+  font-size: var(--fs-body);
+  letter-spacing: var(--ls-body);
   box-sizing: border-box;
 }
 .field-hint {
+  padding: 0 16px;
   color: var(--c-text-3);
-  font-size: 12px;
+  font-size: var(--fs-footnote);
   line-height: 16px;
 }
 .field-error {
+  padding: 0 16px;
   color: var(--c-danger-text);
-  font-size: 12px;
+  font-size: var(--fs-footnote);
   line-height: 16px;
 }
 .placeholder {
   color: var(--c-text-4);
 }
 
-/* ---------- 提示条 ---------- */
+/* ---------- 半屏弹窗内的表单（名单条目、计分项、分数等编辑弹窗共用） ---------- */
+.sheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
+  text-align: left;
+}
+/* 弹窗白底上的输入框改用填充色，与弹窗背景区分；也用于输入框样式的选择器 */
+.field-input-fill {
+  display: flex;
+  align-items: center;
+  background: var(--c-fill);
+}
+/* 弹窗底部的按钮行：取消 + 主操作等宽排列 */
+.sheet-buttons {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+/* ---------- 提示条（图标与标题用语气色，正文用二级文字色） ---------- */
+/*
+ * 提示条：iOS tinted 样式，底色、图标与文字用同一色系——底色为强调色的浅色底（--c-*-tint，透明度同 Fills/Tertiary），
+ * 图标、标题与正文都用该强调色（正文由 .callout-text 继承）。未指定语气时为信息蓝。
+ */
 .callout {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--c-info-soft);
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-xl);
+  background: var(--c-info-tint);
   color: var(--c-info-text);
 }
 .callout.tone-warning {
-  background: var(--c-warning-soft);
+  background: var(--c-warning-tint);
   color: var(--c-warning-text);
 }
 .callout.tone-danger {
-  background: var(--c-danger-soft);
+  background: var(--c-danger-tint);
   color: var(--c-danger-text);
 }
 .callout.tone-success {
-  background: var(--c-success-soft);
+  background: var(--c-success-tint);
   color: var(--c-success-text);
 }
-.callout .i {
+.callout > .i {
+  width: 18px;
+  height: 18px;
   margin-top: 2px;
 }
 .callout-body {
@@ -606,13 +849,17 @@
   min-width: 0;
 }
 .callout-title {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
   font-weight: 600;
 }
 .callout-text {
   margin-top: 2px;
-  font-size: 13px;
-  line-height: 20px;
-  opacity: 0.88;
+  color: inherit;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
   word-break: break-all;
 }
 
@@ -620,9 +867,10 @@
 .kv {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 12px;
-  font-size: 12px;
-  line-height: 18px;
+  gap: 8px 16px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .kv-key {
   color: var(--c-text-3);
@@ -633,7 +881,7 @@
 }
 .code {
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-l);
   background: var(--c-fill);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -646,12 +894,23 @@
 .feed-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 12px;
+  gap: 12px;
+  padding: 11px 16px;
 }
 .feed-item.hover {
-  background: var(--c-fill);
+  background: var(--c-fill-2);
+}
+/* 分隔线从文字起点画到行尾：内边距 16 + 小号底块 24 + 间距 12 */
+.feed-item + .feed-item {
+  position: relative;
+}
+.feed-item + .feed-item::before {
+  content: "";
+  position: absolute;
+  left: 52px;
+  right: 0;
+  top: 0;
+  border-top: 0.5px solid var(--c-line);
 }
 .feed-text {
   flex: 1;
@@ -660,19 +919,126 @@
 .feed-meta {
   margin-top: 2px;
   color: var(--c-text-3);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
 }
 
-/* ---------- 底部操作条 ---------- */
+/*
+ * ---------- 玻璃材质（iOS 27 Liquid Glass：半透明底 + 背景模糊 + 浮层阴影） ----------
+ * 只用于「控件层」：放在页面灰底上、或浮在内容上的搜索框、工具按钮、操作条、浮动按钮；
+ * 白色卡片里的内容与控件仍用实底 / 填充色（玻璃白底放在白卡片上会看不见）。
+ * 使用场景：底部操作条 .save-bar；控制台、配置、模块、世界包、行为日志、更新页顶部的搜索框与工具按钮；
+ * 配置编辑页底部「重启服务」、实例编辑页「测试连接」；控制台命令栏与回到最新；地图上的浮动控件。
+ * 需要放在 .search、.btn 等基础样式之后，叠加时以玻璃底色为准。
+ */
+.glass,
+.save-bar,
+.btn-glass {
+  background: var(--c-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--c-shadow-pop);
+}
+/*
+ * 玻璃按钮：iOS 27 工具栏按钮（「邮件」右上角的「选择」「⋯」），玻璃底 + 主文字色，不用强调色；按下时变淡。
+ * 尺寸沿用 .btn / .btn-sm / .btn-lg，与搜索框并排时加 .btn-field。btn-primary 叠加时为选中态（强调色实底）。
+ */
+.btn-glass {
+  color: var(--c-text);
+}
+.btn-glass.hover {
+  background: var(--c-glass);
+  opacity: 0.6;
+}
+.btn-glass.btn-primary,
+.btn-glass.btn-primary.hover {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+/*
+ * 与搜索框同高的按钮（48，iOS 27 Search Field 的高度），符号按 Body 字号绘制。
+ * 使用场景：控制台工具按钮与回到最新、配置页「重启服务」、模块页「搜索」。
+ */
+.btn-field {
+  height: 48px;
+  padding: 0 18px;
+}
+.btn-field.btn-icon {
+  width: 48px;
+  padding: 0;
+}
+.btn-field > .i {
+  width: 20px;
+  height: 20px;
+}
+/*
+ * 页面底色上的筛选胶囊：iOS 27「邮件」顶部的分类筛选，未选中为玻璃底、36 高；选中态见 .chip.active。
+ * 使用场景：控制台级别 / 来源筛选、行为日志的时间与分类筛选、地图图层开关（地图上另加 .glass 的阴影）。
+ * 放在横向 scroll-view 里时不加阴影，免得被滚动区域裁切。
+ */
+.chip-glass {
+  height: 36px;
+  padding: 0 14px;
+  background: var(--c-glass);
+}
+
+/* ---------- 底部操作条（iOS 27 底部工具栏：玻璃材质胶囊，材质见上方 .glass） ---------- */
 .save-bar {
   position: sticky;
   bottom: calc(12px + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--c-elevated);
-  box-shadow: 0 0 0 0.5px var(--c-line), 0 8px 24px rgba(28, 28, 28, 0.12);
+  padding: 8px;
+  border-radius: var(--radius-full);
+}
+
+/*
+ * ---------- 底部悬浮栏（iOS 27 Builder Tab Bar 的 Separate Search=True）----------
+ * 左侧玻璃胶囊（docked 的 glass-tab-bar 分类切换，或搜索框）+ 右侧 62 圆形玻璃按钮，两者间距至少 16；
+ * 位置与标签栏相同（左右 21、底边 --tab-bar-bottom），页面加 .with-dock 让出底部高度。
+ * 使用场景：模块管理（已安装 / 可安装 + 重启 BDS）、世界包（包类型 + 重启 BDS）、配置（筛选 + 重启服务）。
+ */
+.dock {
+  position: fixed;
+  left: 21px;
+  right: 21px;
+  bottom: 12px;
+  bottom: var(--tab-bar-bottom);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+/* 悬浮栏里的搜索框：与圆形按钮同高（62）的玻璃胶囊，撑满左侧 */
+.dock > .search {
+  flex: 1;
+  height: var(--tab-bar-height);
+  padding: 0 18px;
+}
+.dock > .search input {
+  height: var(--tab-bar-height);
+}
+/* 圆形玻璃按钮：Figma 中 62 × 62，符号区 28；材质由同时加的 .glass 提供 */
+.dock-button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tab-bar-height);
+  height: var(--tab-bar-height);
+  border-radius: var(--radius-full);
+  color: var(--c-text);
+}
+.dock-button > .i {
+  width: 24px;
+  height: 24px;
+}
+.dock-button.hover {
+  opacity: 0.6;
+}
+/* 当前不能执行（如有任务进行中不能重启）：仍可点按，由页面提示原因 */
+.dock-button.disabled {
+  opacity: 0.4;
 }

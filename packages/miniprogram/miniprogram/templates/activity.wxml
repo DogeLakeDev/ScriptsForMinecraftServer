@@ -6,19 +6,19 @@
 
 <!-- 筛选：关键词 + 时间范围 + 分类。数据：keyword、hint（搜索框占位）、ranges、categories -->
 <template name="activity-filters">
-  <view class="search">
+  <view class="search glass">
     <text class="i i-search"></text>
     <input value="{{keyword}}" placeholder="{{hint}}" placeholder-class="placeholder" confirm-type="search" bindinput="onKeyword" bindconfirm="search" />
     <text wx:if="{{keyword}}" class="i i-x" bindtap="clearKeyword"></text>
   </view>
   <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="activity-chip-scroll">
     <view class="chips">
-      <view wx:for="{{ranges}}" wx:key="value" class="chip {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickRange">{{item.label}}</view>
+      <view wx:for="{{ranges}}" wx:key="value" class="chip chip-glass {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickRange">{{item.label}}</view>
     </view>
   </scroll-view>
   <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="activity-chip-scroll">
     <view class="chips">
-      <view wx:for="{{categories}}" wx:key="value" class="chip {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickCategory">{{item.label}}</view>
+      <view wx:for="{{categories}}" wx:key="value" class="chip chip-glass {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickCategory">{{item.label}}</view>
     </view>
   </scroll-view>
 </template>

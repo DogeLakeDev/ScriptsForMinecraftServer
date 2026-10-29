@@ -8,7 +8,7 @@
 import type { MapLand, MapLandArea } from "./map-api";
 import { CHUNK_BLOCKS, isOverworld } from "./map-view";
 
-/** 一块领地的配色：fill 半透明填充，stroke 轮廓与子区域虚线 */
+/** 一块领地的配色：fill 半透明填充，stroke 轮廓、子区域虚线与标注（圆点 / 图标 / 大头钉）的底色 */
 export interface LandColor {
   fill: string;
   stroke: string;
@@ -52,9 +52,27 @@ function chunkKey(chunkX: number, chunkZ: number): string {
   return `${chunkX},${chunkZ}`;
 }
 
+/** 领地填充的不透明度（与网页版 hsla 的第四个分量一致）。使用场景：landColor */
+const LAND_FILL_ALPHA = 0.28;
+
+/**
+ * HSL 换算成 0–255 的 RGB 分量（h 为度数，s、l 为 0–1，CSS 规范的换算公式）。
+ * 使用场景：landColor。iOS 微信的 canvas 2d 对 hsla() 填充显示异常（领地变成不透明的黑、白或杂色块，电脑版正常），
+ * 所以颜色在这里换算成各端都支持的 rgba() / rgb() 写法；数值与原先的 hsla / hsl 相同，网页版继续用 hsla 不受影响。
+ */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+  };
+  return [channel(0), channel(8), channel(4)];
+}
+
 /**
  * 按领地 id 生成固定的颜色（FNV-1a 哈希取色相）。
  * 使用场景：每块领地一种色相，相邻领地容易分清，刷新数据时颜色不跳；与网页版同一 id 得到同一色相。
+ * 色值仍是 hsla(hue, 75%, 50%, 0.28) / hsl(hue, 80%, 40%)，只是写成 rgba / rgb（见 hslToRgb）。
  */
 export function landColor(id: string): LandColor {
   let hash = 0x811c9dc5;
@@ -63,7 +81,9 @@ export function landColor(id: string): LandColor {
     hash = Math.imul(hash, 0x01000193);
   }
   const hue = (hash >>> 0) % 360;
-  return { fill: `hsla(${hue}, 75%, 50%, 0.28)`, stroke: `hsl(${hue}, 80%, 40%)` };
+  const [fr, fg, fb] = hslToRgb(hue, 0.75, 0.5);
+  const [sr, sg, sb] = hslToRgb(hue, 0.8, 0.4);
+  return { fill: `rgba(${fr}, ${fg}, ${fb}, ${LAND_FILL_ALPHA})`, stroke: `rgb(${sr}, ${sg}, ${sb})` };
 }
 
 /**

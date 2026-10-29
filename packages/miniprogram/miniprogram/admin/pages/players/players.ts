@@ -6,6 +6,7 @@
  * 支持列表与 JSON 两种视图，JSON 视图为纯文本编辑。
  * 平台带 activity 能力时，点按绑定记录进入「行为日志」并只看该玩家。
  */
+import type { SwipeAction } from "../../../components/swipe-row/index";
 import { ask, submit } from "../../../core/actions";
 import { errorText, fullTime, hashHue, isTaskDone, relativeTime } from "../../../core/format";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
@@ -27,6 +28,11 @@ const BDS_LEVEL_KEYS = ["visitor", "member", "operator"];
 const SFMC_LEVELS = ["游客", "成员", "管理员", "Admin"];
 /** QQ 通道在绑定表里的取值 */
 const QQ_BACKENDS: Record<string, string> = { official: "官方 Bot", llbot: "LLBot" };
+/** 名单条目左滑露出的操作（swipe-row actions），key 由 onEntryAction 分派 */
+const ENTRY_ACTIONS: SwipeAction[] = [
+  { key: "edit", icon: "pencil", label: "编辑" },
+  { key: "remove", icon: "trash", tone: "danger", label: "删除" },
+];
 /** 在线快照超过这么久视为不新鲜 */
 const PLAYERS_STALE_MS = 60_000;
 
@@ -150,6 +156,7 @@ Page({
     draftErrors: {} as Record<string, string>,
     bdsLevels: BDS_LEVEL_KEYS.map((key) => BDS_LEVELS[key]),
     sfmcLevels: SFMC_LEVELS.map((label, level) => `${level} ${label}`),
+    entryActions: ENTRY_ACTIONS,
   },
   onLoad() {
     view.data = null;
@@ -237,14 +244,19 @@ Page({
     this.setData({ text: view.text });
     this.rerender();
   },
-  removeEntry(event: WechatMiniprogram.TouchEvent) {
+  /** 名单条目左滑操作：edit 打开编辑弹窗，remove 从草稿删除（data-index 挂在 swipe-row 上） */
+  onEntryAction(event: WechatMiniprogram.CustomEvent<{ key: string }>) {
+    if (event.detail.key === "edit") this.openEditor(event);
+    else if (event.detail.key === "remove") this.removeEntry(event);
+  },
+  removeEntry(event: WechatMiniprogram.BaseEvent) {
     if (!this.data.editable) return;
     const index = Number(event.currentTarget.dataset.index);
     const entries = parseEntries(view.text);
     if (!entries) return;
     this.commitEntries(entries.filter((_, position) => position !== index));
   },
-  openEditor(event: WechatMiniprogram.TouchEvent) {
+  openEditor(event: WechatMiniprogram.BaseEvent) {
     if (!this.data.editable) return;
     const raw = event.currentTarget.dataset.index;
     const entries = parseEntries(view.text);

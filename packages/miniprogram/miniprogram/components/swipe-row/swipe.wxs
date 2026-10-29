@@ -1,0 +1,102 @@
+/**
+ * swipe.wxs — swipe-row 的左滑手势（运行在渲染层，拖动时不经过 setData）
+ *
+ * 使用场景：components/swipe-row 的内容层绑定 start / move / end；
+ * 先判定手势方向，横向时内容层跟手左移、阻止页面滚动，纵向时不处理（交给页面滚动）；
+ * 松手时按是否越过操作区一半宽度决定展开或收起，并通知组件逻辑层（onOpen / onClose）。
+ * 操作区宽度由组件测量后经 swipewidth 属性传入，收起信号经 swipereset 属性传入。
+ */
+
+/** 方向判定前允许的抖动距离（px），超过后按横 / 纵分量较大者锁定方向 */
+var DIRECTION_LOCK = 8;
+/** 拉过操作区宽度后的阻尼系数，模仿 iOS 越界回弹的手感 */
+var OVERDRAG_RATIO = 0.3;
+/** 展开 / 收起动画，与 base.wxss 中开关的缓动曲线一致 */
+var SETTLE_TRANSITION = "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+
+/** 读取内容层上的手势状态（每个实例一份） */
+function stateOf(instance) {
+  var state = instance.getState();
+  if (state.offset === undefined) {
+    state.offset = 0;
+    state.width = 0;
+    state.dir = "";
+  }
+  return state;
+}
+
+/** 把内容层移到 offset（≤ 0）；左移中加 swiping 类显示圆角灰底 */
+function place(instance, state, offset, animate) {
+  state.offset = offset;
+  instance.setStyle({
+    transform: "translateX(" + offset + "px)",
+    transition: animate ? SETTLE_TRANSITION : "none"
+  });
+  if (offset < 0) instance.addClass("swiping");
+  else instance.removeClass("swiping");
+}
+
+/** 组件测量到操作区宽度（swipewidth 变化）时记录下来 */
+function setWidth(width, oldWidth, ownerInstance, instance) {
+  var state = stateOf(instance);
+  state.width = width || 0;
+  if (state.offset < -state.width) place(instance, state, -state.width, true);
+}
+
+/** 组件要求收起（swipereset 计数变化）：点按遮罩、点按操作按钮、其他行开始滑动时 */
+function reset(signal, oldSignal, ownerInstance, instance) {
+  if (signal === oldSignal) return;
+  var state = stateOf(instance);
+  if (state.offset !== 0) place(instance, state, 0, true);
+}
+
+function start(event, ownerInstance) {
+  var instance = event.instance;
+  var state = stateOf(instance);
+  var touch = event.touches[0];
+  state.disabled = !!instance.getDataset().disabled;
+  state.startX = touch.pageX;
+  state.startY = touch.pageY;
+  state.base = state.offset;
+  state.dir = "";
+  // 通知逻辑层收起其他已展开的行（同一时间只展开一行）
+  ownerInstance.callMethod("onTouchStart");
+}
+
+function move(event) {
+  var instance = event.instance;
+  var state = stateOf(instance);
+  if (state.disabled || !state.width) return;
+  var touch = event.touches[0];
+  var dx = touch.pageX - state.startX;
+  var dy = touch.pageY - state.startY;
+  if (!state.dir) {
+    if (Math.abs(dx) < DIRECTION_LOCK && Math.abs(dy) < DIRECTION_LOCK) return;
+    state.dir = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+  }
+  if (state.dir !== "x") return;
+  var next = state.base + dx;
+  if (next > 0) next = 0;
+  if (next < -state.width) next = -state.width + (next + state.width) * OVERDRAG_RATIO;
+  place(instance, state, next, false);
+  // 横向拖动中阻止页面纵向滚动
+  return false;
+}
+
+function end(event, ownerInstance) {
+  var instance = event.instance;
+  var state = stateOf(instance);
+  if (state.dir !== "x") return;
+  state.dir = "";
+  var open = state.offset < -state.width / 2;
+  place(instance, state, open ? -state.width : 0, true);
+  ownerInstance.callMethod(open ? "onOpen" : "onClose");
+}
+
+module.exports = {
+  setWidth: setWidth,
+  reset: reset,
+  start: start,
+  move: move,
+  end: end
+};

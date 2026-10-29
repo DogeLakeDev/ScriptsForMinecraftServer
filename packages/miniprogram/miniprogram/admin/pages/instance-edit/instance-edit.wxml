@@ -53,7 +53,7 @@
   </view>
 
   <view class="row actions">
-    <view class="btn btn-lg flex1" hover-class="hover" bindtap="test">
+    <view class="btn btn-lg btn-glass flex1" hover-class="hover" bindtap="test">
       <text class="i {{testing ? 'i-loader spin' : 'i-plug'}}"></text>
       <text>测试连接</text>
     </view>

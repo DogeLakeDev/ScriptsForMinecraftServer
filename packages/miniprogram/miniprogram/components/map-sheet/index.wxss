@@ -1,0 +1,51 @@
+/* 可用区域：左右各留 8，顶部留 8，底边在悬浮标签栏上方 8；本身不接收触摸，空白处的手势交给地图 */
+.map-sheet-area {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  bottom: calc(8px + var(--tab-bar-space));
+  pointer-events: none;
+}
+/* 面板：贴可用区域底边，高度由 sheet.wxs 按档位设置；测量前高度为 0，避免整块内容闪一下 */
+.map-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xxl);
+  pointer-events: auto;
+}
+/*
+ * 面板上方的控件（accessory 插槽）：贴可用区域右下角，由 sheet.wxs 上移到面板顶边上方并随面板升降、拉高时淡出（iOS 26 地图右下角按钮）。
+ * 宽度随内容，空白处不挡地图；测量前透明且不接收触摸，避免进入页面时在底部闪一下。
+ */
+.map-sheet-accessory {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+/* 头部：把手 + 页面传入的搜索框或标题，整块可拖动；收起档的高度即头部高度 */
+.map-sheet-header {
+  flex: none;
+  padding: 0 16px 12px;
+}
+/* 把手：iOS Sheet Grabber，36×5 胶囊 */
+.map-sheet-grabber {
+  width: 36px;
+  height: 5px;
+  margin: 6px auto 8px;
+  border-radius: var(--radius-full);
+  background: var(--c-text-4);
+}
+/* 正文：占满剩余高度，中档与全屏时可滚动 */
+.map-sheet-body {
+  flex: 1;
+  height: 0;
+}

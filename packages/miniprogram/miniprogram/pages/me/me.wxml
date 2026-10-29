@@ -16,30 +16,69 @@
     </view>
   </view>
 
-  <!-- 账号 -->
-  <view wx:if="{{configured && !error}}" class="surface">
+  <!-- 已绑定：居中头像 + 2×2 统计 -->
+  <view wx:if="{{configured && !error && bound}}" class="surface">
+    <view class="surface-body me-hero">
+      <text class="avatar me-avatar" style="background: hsl({{hue}}, 55%, 62%)">{{initial}}</text>
+      <view class="me-hero-name">
+        <text class="truncate">{{loading ? '读取中…' : playerName}}</text>
+        <text wx:if="{{levelLabel}}" class="badge {{isAdmin ? 'tone-accent' : ''}}">{{levelLabel}}</text>
+      </view>
+      <view wx:if="{{boundAtText}}" class="small muted">{{boundAtText}}</view>
+      <view class="me-stats">
+        <view class="stat">
+          <text class="small muted">余额</text>
+          <text class="stat-value me-stat-value">{{balanceText}}</text>
+        </view>
+        <view class="stat">
+          <text class="small muted">今日在线</text>
+          <text class="stat-value me-stat-value">{{todayText}}</text>
+        </view>
+        <view class="stat">
+          <text class="small muted">本月在线</text>
+          <text class="stat-value me-stat-value">{{monthText}}</text>
+        </view>
+        <view class="stat">
+          <text class="small muted">累计在线</text>
+          <text class="stat-value me-stat-value">{{totalText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 未绑定：状态行 -->
+  <view wx:if="{{configured && !error && !bound}}" class="surface">
     <view class="surface-list">
       <view class="list-item">
-        <view class="tile {{bound ? 'tile-blue' : 'tile-neutral'}}"><text class="i i-user"></text></view>
+        <view class="tile tile-neutral"><text class="i i-user"></text></view>
         <view class="list-main">
-          <view class="list-title">
-            <text class="truncate">{{loading ? '读取中…' : (bound ? playerName : '未绑定游戏账号')}}</text>
-            <text wx:if="{{levelLabel}}" class="badge {{isAdmin ? 'tone-accent' : ''}}">{{levelLabel}}</text>
-          </view>
+          <view class="list-title"><text class="truncate">{{loading ? '读取中…' : '未绑定游戏账号'}}</text></view>
           <view class="list-sub">{{serverName}}</view>
         </view>
       </view>
     </view>
-    <view wx:if="{{bound}}" class="surface-body">
-      <view class="kv">
-        <text class="kv-key">余额</text>
-        <text class="kv-value num">{{balanceText}}</text>
-        <text class="kv-key">今日在线</text>
-        <text class="kv-value">{{todayText}}</text>
-        <text class="kv-key">本月在线</text>
-        <text class="kv-value">{{monthText}}</text>
-        <text class="kv-key">累计在线</text>
-        <text class="kv-value">{{totalText}}</text>
+  </view>
+
+  <!-- 我的资产 -->
+  <view wx:if="{{bound}}" class="section">
+    <view class="section-header"><text class="section-title">我的资产</text></view>
+    <view class="surface">
+      <view class="surface-list">
+        <view class="list-item" hover-class="hover" bindtap="openLands">
+          <view class="tile tile-green"><text class="i i-layers"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">我的领地</text></view>
+          </view>
+          <text class="small {{landDelinquent ? 'text-danger' : 'muted'}} num">{{landCount}} 块</text>
+          <text class="i i-sm i-chevron-right muted"></text>
+        </view>
+        <view class="list-item" hover-class="hover" bindtap="openTransactions">
+          <view class="tile tile-teal"><text class="i i-activity"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">交易记录</text></view>
+          </view>
+          <text class="i i-sm i-chevron-right muted"></text>
+        </view>
       </view>
     </view>
   </view>
@@ -57,58 +96,61 @@
     </view>
   </view>
 
-  <!-- 绑定 -->
-  <view wx:if="{{configured && !error && !loading && !bound}}" class="surface">
-    <view class="surface-head"><text class="surface-title">绑定游戏账号</text></view>
-    <view class="surface-body">
-      <block wx:if="{{bindCode}}">
-        <view class="me-code mono num" bindtap="copyBindCode">{{bindCode}}</view>
-        <view class="small muted me-center">{{bindRemain}} 点击复制</view>
-        <view class="callout me-steps">
-          <text class="i i-info"></text>
-          <view class="callout-body">
-            <view class="callout-text">1. 进入服务器，在聊天框输入 /c:bind</view>
-            <view class="callout-text">2. 再把上面的 6 位绑定码发送到聊天框</view>
+  <!-- 绑定引导 -->
+  <view wx:if="{{configured && !error && !loading && !bound}}" class="section">
+    <view class="section-header"><text class="section-title">绑定游戏账号</text></view>
+    <view class="surface">
+      <view class="surface-body">
+        <block wx:if="{{bindCode}}">
+          <view class="me-code mono num" bindtap="copyBindCode">{{bindCode}}</view>
+          <view class="small muted me-center">{{bindRemain}} 点击复制</view>
+          <view class="callout me-steps">
+            <text class="i i-info"></text>
+            <view class="callout-body">
+              <view class="callout-text">1. 进入服务器，在聊天框输入 /c:bind</view>
+              <view class="callout-text">2. 再把上面的 6 位绑定码发送到聊天框</view>
+            </view>
           </view>
-        </view>
-      </block>
-      <block wx:else>
-        <view class="btn btn-primary btn-block btn-lg me-action {{requesting ? 'disabled' : ''}}" hover-class="hover" bindtap="requestBind">
-          <text class="i {{requesting ? 'i-loader spin' : 'i-link'}}"></text>
-          <text>获取绑定码</text>
-        </view>
-      </block>
+        </block>
+        <block wx:else>
+          <view class="btn btn-primary btn-block btn-lg {{requesting ? 'disabled' : ''}}" hover-class="hover" bindtap="requestBind">
+            <text class="i {{requesting ? 'i-loader spin' : 'i-link'}}"></text>
+            <text>获取绑定码</text>
+          </view>
+        </block>
+      </view>
     </view>
   </view>
 
   <!-- 管理 -->
-  <view class="surface">
-    <view class="surface-head"><text class="surface-title">服务器管理</text></view>
-    <view class="surface-list">
-      <view class="list-item" hover-class="hover" bindtap="openAdmin">
-        <view class="tile tile-violet"><text class="i i-shield"></text></view>
-        <view class="list-main">
-          <view class="list-title"><text class="truncate">进入管理端</text></view>
-          <view class="list-sub">{{isAdmin ? '以游戏内管理员身份管理实例' : '用访问令牌添加或管理实例'}}</view>
+  <view class="section">
+    <view class="section-header"><text class="section-title">服务器管理</text></view>
+    <view class="surface">
+      <view class="surface-list">
+        <view class="list-item" hover-class="hover" bindtap="openAdmin">
+          <view class="tile tile-violet"><text class="i i-shield"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">进入管理端</text></view>
+            <view class="list-sub">{{isAdmin ? '以游戏内管理员身份管理实例' : '用访问令牌添加或管理实例'}}</view>
+          </view>
+          <text class="i i-sm i-chevron-right muted"></text>
         </view>
-        <text class="i i-sm i-chevron-right muted"></text>
-      </view>
-      <view wx:if="{{isAdmin}}" class="list-item" hover-class="hover" bindtap="approveDesktop">
-        <view class="tile tile-teal"><text class="i i-monitor"></text></view>
-        <view class="list-main">
-          <view class="list-title"><text class="truncate">登录桌面端</text></view>
-          <view class="list-sub">扫描桌面端二维码或输入登录码</view>
+        <view wx:if="{{isAdmin}}" class="list-item" hover-class="hover" bindtap="approveDesktop">
+          <view class="tile tile-teal"><text class="i i-monitor"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">登录桌面端</text></view>
+            <view class="list-sub">扫描桌面端二维码或输入登录码</view>
+          </view>
+          <text class="i i-sm i-chevron-right muted"></text>
         </view>
-        <text class="i i-sm i-chevron-right muted"></text>
       </view>
     </view>
   </view>
 
-  <!-- 账号操作 -->
+  <!-- 账号操作：iOS 的破坏性按钮行（Row - Button，Destructive），只有红色文字，不带图标 -->
   <view wx:if="{{bound}}" class="surface">
     <view class="surface-list">
       <view class="list-item" hover-class="hover" bindtap="unbind">
-        <view class="tile tile-danger"><text class="i i-unplug"></text></view>
         <view class="list-main">
           <view class="list-title"><text class="truncate text-danger">解除绑定</text></view>
         </view>

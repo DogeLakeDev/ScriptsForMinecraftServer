@@ -1,23 +1,19 @@
-/* 控制台占满可视区：顶部筛选 + 中间日志 + 底部命令栏；原生标签栏不占用页面高度 */
+/* 控制台占满可视区：顶部筛选 + 中间日志 + 底部命令栏；原生标签栏不占用页面高度。.flex1 见 styles/base.wxss */
 .console {
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   box-sizing: border-box;
-  padding: 12px;
-  /* 底部导航 admin-nav 固定在页面之上，日志区与命令栏要让出它的高度 */
-  padding-bottom: calc(12px + var(--admin-nav-height) + env(safe-area-inset-bottom));
+  padding: 12px 16px;
+  /* 底部悬浮标签栏 admin-nav 浮在页面之上，日志区与命令栏要让出它占用的高度 */
+  padding-bottom: calc(12px + var(--tab-bar-space));
   gap: 8px;
 }
 .console-top {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.flex1 {
-  flex: 1;
-  min-width: 0;
 }
 .chip-scroll {
   width: 100%;
@@ -36,7 +32,7 @@
 .log-view {
   flex: 1;
   min-height: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--c-block);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -58,7 +54,7 @@
   white-space: normal;
 }
 .log-row {
-  padding: 2px 10px;
+  padding: 2px 12px;
   white-space: nowrap;
 }
 .log-view.wrap .log-row {
@@ -66,7 +62,7 @@
   word-break: break-all;
 }
 .log-row:first-child {
-  padding-top: 8px;
+  padding-top: 10px;
 }
 .log-row.focus {
   background: var(--c-warning-soft);
@@ -96,43 +92,61 @@
 .log-hint {
   padding: 12px;
   color: var(--c-text-3);
-  font-family: -apple-system, sans-serif;
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
   text-align: center;
   white-space: normal;
 }
 
+/* 「回到最新」浮动按钮：玻璃圆形按钮（样式见 base.wxss 的 .btn-glass），浮在日志区右下角、命令栏上方 */
 .follow-btn {
   position: absolute;
-  right: 24px;
-  bottom: calc(72px + var(--admin-nav-height) + env(safe-area-inset-bottom));
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-  font-size: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
-}
-.follow-btn.hover {
-  opacity: 0.86;
+  right: 28px;
+  bottom: calc(84px + var(--tab-bar-space));
 }
 
+/* 命令栏：iOS 27「信息」输入栏，玻璃胶囊（材质见 .glass）高 48；左侧目标选择、右侧历史与发送，内部控件统一 36 高 */
 .command-bar {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px;
-  border-radius: 14px;
-  background: var(--c-block);
+  border-radius: var(--radius-full);
+}
+/* 目标服务选择：填充色胶囊 + 主文字色，与输入文字同为一级内容，不用强调色 */
+.command-target {
+  height: 36px;
+  padding: 0 14px;
+  color: var(--c-text);
+}
+.command-target > .i {
+  color: var(--c-text-3);
 }
 .command-input {
   flex: 1;
   min-width: 0;
-  height: 32px;
-  font-size: 13px;
+  height: 36px;
+  font-size: var(--fs-subheadline);
   color: var(--c-text);
+}
+/* 历史命令：输入栏里的纯符号（同「信息」输入栏的麦克风），无底色、二级文字色 */
+.command-tool {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  color: var(--c-text-2);
+}
+.command-tool.hover {
+  background: var(--c-fill);
+}
+/* 发送：强调色实底圆形 + 白色向上箭头，只在有内容时出现 */
+.command-send {
+  width: 36px;
+  height: 36px;
+}
+.command-send > .i,
+.command-tool > .i {
+  width: 20px;
+  height: 20px;
 }

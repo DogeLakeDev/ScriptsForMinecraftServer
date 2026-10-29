@@ -1,4 +1,4 @@
-/* 地图页：画布铺满标签页可视区域，控件浮在画布上 */
+/* 地图页：画布铺满标签页可视区域，控件与底部面板（components/map-sheet）浮在画布上 */
 .map-root {
   position: relative;
   width: 100%;
@@ -14,73 +14,151 @@
   height: 100%;
 }
 
-/* 顶部：图层开关与上报中断提示 */
-.map-top {
+/* 浮在地图上的控件（控件胶囊、底部面板）用公共玻璃材质 .glass，见 styles/base.wxss */
+
+/* 左上角：位置上报中断提示（比例尺画在画布上，提示条显示时比例尺下移，见 map.ts 的 SCALE_BAR_TOP_WITH_BADGE） */
+.map-stale {
   position: absolute;
   left: 12px;
-  right: 12px;
   top: 12px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  pointer-events: none;
-}
-.map-top .chips,
-.map-stale {
-  pointer-events: auto;
-}
-.map-chip {
-  box-shadow: inset 0 0 0 0.5px var(--c-line), 0 2px 8px rgba(28, 28, 28, 0.12);
 }
 
-/* 右侧：缩放、全图与定位按钮 */
-.map-tools {
-  position: absolute;
-  right: 12px;
-  top: 56px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/*
+ * 控件胶囊：iOS 26 起地图右下角的竖向玻璃按钮组，每格 44×44，中间细分隔线。
+ * 放在 map-sheet 的 accessory 插槽里，位置（面板顶边右上方）由面板组件随档位设置，这里只管外观。
+ */
+.map-controls {
+  width: 44px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
 }
-.map-tool {
+.map-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--c-elevated);
+  width: 44px;
+  height: 44px;
   color: var(--c-text);
-  box-shadow: 0 0 0 0.5px var(--c-line), 0 2px 8px rgba(28, 28, 28, 0.12);
 }
-.map-tool.hover {
+.map-control > .i {
+  width: 20px;
+  height: 20px;
+}
+.map-control.hover {
   background: var(--c-fill-2);
 }
-
-/* 底部：选中信息与不在主世界的玩家 */
-.map-bottom {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* 图层面板打开时，「图层」按钮用强调色 */
+.map-control.active {
+  color: var(--c-primary);
 }
-.map-card {
+.map-control-divider {
+  height: 0.5px;
+  margin: 0 8px;
+  background: var(--c-line);
+}
+
+/* ---------- 底部面板的内容 ---------- */
+/* 面板里的搜索框：玻璃面板上用填充色底，与面板区分 */
+.map-search {
+  background: var(--c-fill);
+}
+.map-search-clear {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--c-elevated);
-  box-shadow: 0 0 0 0.5px var(--c-line), 0 8px 24px rgba(28, 28, 28, 0.12);
-}
-.map-other + .map-other::before {
-  content: "、";
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: var(--c-text-3);
+}
+/* 地点卡 / 图层面板的头部：标题（Title 2 粗体）+ 右侧圆形关闭按钮 */
+.map-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.map-sheet-title {
+  font-size: var(--fs-title-2);
+  line-height: var(--lh-title-2);
+  letter-spacing: var(--ls-title-2);
+  font-weight: 700;
+}
+/* 关闭按钮：iOS Sheet 右上角的 30 圆形灰底 × */
+.map-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--c-fill);
+  color: var(--c-text-2);
+}
+.map-close > .i {
+  width: 16px;
+  height: 16px;
+}
+.map-close.hover {
+  opacity: 0.6;
+}
+/* 正文：左右 16，与头部对齐；分组之间 16 */
+.map-sheet-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+/* 分组标题：Apple 地图面板里的小节标题（Footnote 粗体、二级文字色），缩进与卡片内文字对齐 */
+.map-group-title {
+  padding: 0 16px 6px;
+  color: var(--c-text-2);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  letter-spacing: var(--ls-footnote);
+  font-weight: 600;
+}
+.map-empty {
+  padding: 8px 16px;
+  color: var(--c-text-3);
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  text-align: center;
+}
+/* 没有图标的行（详情、子区域）：分隔线从行首文字起点画起 */
+.map-plain-row + .map-plain-row::before {
+  left: 16px;
+}
+/* 地点卡的操作按钮行：等宽的卡片按钮，图标在上、文字在下，强调色（Apple 地图地点卡的按钮） */
+.map-actions {
+  display: flex;
+  gap: 8px;
+}
+.map-action {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 60px;
+  border-radius: var(--radius-l);
+  background: var(--c-block);
+  color: var(--c-primary);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 600;
+}
+.map-action.hover {
+  opacity: 0.6;
+}
+/* 「跟随中」：强调色实底 */
+.map-action.active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+.map-link {
+  color: var(--c-link);
 }
 
 .map-retry {

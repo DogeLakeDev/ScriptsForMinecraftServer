@@ -1,3 +1,4 @@
+/* 空状态：对应 iOS 的 ContentUnavailableView —— 灰色大图标底块 + Title 3 标题 + Subheadline 说明 */
 .empty {
   display: flex;
   flex-direction: column;
@@ -10,11 +11,21 @@
   padding: 20px 16px;
 }
 .empty-title {
-  color: var(--c-text-2);
+  margin-top: 4px;
+  color: var(--c-text);
+  font-size: var(--fs-title-3);
+  line-height: var(--lh-title-3);
+  letter-spacing: var(--ls-title-3);
   font-weight: 600;
+}
+.empty.compact .empty-title {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
 }
 .empty-desc {
   color: var(--c-text-3);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }

@@ -1,19 +1,7 @@
+<import src="/admin/templates/scoreboard.wxml" />
 <view class="page">
   <conn-banner />
-
-  <!-- 数据服务不可用 / 快照不新鲜 -->
-  <view wx:if="{{note}}" class="callout tone-{{noteTone}}">
-    <text class="i i-info"></text>
-    <view class="callout-body">
-      <view class="callout-text">{{note}}</view>
-    </view>
-  </view>
-  <view wx:if="{{truncated}}" class="callout tone-warning">
-    <text class="i i-warning"></text>
-    <view class="callout-body">
-      <view class="callout-text">参与者过多，游戏内只同步了前一部分分数，统计与排行可能不完整。</view>
-    </view>
-  </view>
+  <template is="scoreboard-status" data="{{note, noteTone, truncated}}" />
 
   <!-- 读取失败且没有可显示的数据 -->
   <view wx:if="{{error && !loaded}}" class="surface">
@@ -22,139 +10,57 @@
     </empty-state>
   </view>
 
-  <!-- 计分项 -->
-  <view class="surface">
-    <view class="surface-head">
-      <view class="surface-title">
+  <!-- 计分项列表：点按进入详情，左滑删除 -->
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">
         <view>计分项</view>
-        <view class="surface-sub">{{loading && !loaded ? '正在读取…' : synced || '尚无快照'}}</view>
+        <view class="section-sub">{{loading && !loaded ? '正在读取…' : synced || '尚无快照'}}</view>
       </view>
       <view class="btn btn-sm btn-primary {{canEdit && !saving ? '' : 'disabled'}}" hover-class="hover" bindtap="openObjectiveForm">
-        <text class="i i-sm i-plus"></text>
         <text>新建</text>
       </view>
     </view>
-    <view wx:if="{{objectives.length || objectiveKeyword}}" class="surface-body scoreboard-objectives">
-      <view class="search scoreboard-search">
-        <text class="i i-search"></text>
-        <input value="{{objectiveKeyword}}" placeholder="搜索计分项" placeholder-class="placeholder" bindinput="onObjectiveKeyword" />
-        <text wx:if="{{objectiveKeyword}}" class="i i-x" bindtap="clearObjectiveKeyword"></text>
-      </view>
-      <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="scoreboard-chip-scroll">
-        <view class="chips">
-          <view wx:for="{{objectives}}" wx:key="id" class="chip {{item.active ? 'active' : ''}}" data-id="{{item.id}}" bindtap="pickObjective">
-            <text wx:if="{{item.shown}}" class="i i-sm i-eye"></text>
-            <text>{{item.title}}</text>
-            <text class="chip-count num">{{item.count}}</text>
-          </view>
-        </view>
-      </scroll-view>
-      <view wx:if="{{!objectives.length}}" class="small muted">没有匹配的计分项</view>
+    <view wx:if="{{objectives.length || objectiveKeyword}}" class="search glass">
+      <text class="i i-search"></text>
+      <input value="{{objectiveKeyword}}" placeholder="搜索计分项" placeholder-class="placeholder" bindinput="onObjectiveKeyword" />
+      <text wx:if="{{objectiveKeyword}}" class="i i-x" bindtap="clearObjectiveKeyword"></text>
     </view>
-    <empty-state wx:elif="{{empty}}" icon="trophy" title="还没有计分项" desc="可以新建一个，或在游戏内用 /scoreboard objectives add 创建" compact />
-  </view>
-
-  <!-- 选中计分项：统计、排行与分布 -->
-  <view wx:if="{{selected}}" class="surface">
-    <view class="surface-head">
-      <view class="surface-title">
-        <view class="truncate">{{selected.title}}</view>
-        <view class="surface-sub mono truncate">{{selected.id}}</view>
-      </view>
-      <view class="btn btn-sm btn-icon btn-danger-soft {{canEdit && !saving ? '' : 'disabled'}}" hover-class="hover" bindtap="removeObjective">
-        <text class="i i-sm i-trash"></text>
-      </view>
-    </view>
-    <view wx:if="{{selected.slots.length}}" class="surface-body row wrap scoreboard-slots">
-      <text wx:for="{{selected.slots}}" wx:key="*this" class="badge tone-info"><text class="i i-sm i-eye"></text>{{item}}</text>
-    </view>
-    <view class="surface-body">
-      <view class="scoreboard-stats">
-        <view wx:for="{{selected.stats}}" wx:key="label" class="scoreboard-stat">
-          <text class="small muted">{{item.label}}</text>
-          <text class="scoreboard-stat-value num">{{item.value}}</text>
-        </view>
-      </view>
-    </view>
-    <block wx:if="{{selected.count}}">
-      <view class="surface-body scoreboard-section">
-        <view class="small muted">{{selected.rankTitle}}</view>
-        <view wx:for="{{selected.ranking}}" wx:key="id" class="scoreboard-rank">
-          <text class="num muted scoreboard-rank-no">{{item.rank}}</text>
-          <view class="scoreboard-rank-main">
-            <view class="scoreboard-rank-head">
-              <text class="truncate">{{item.name}}</text>
-              <text class="num">{{item.score}}</text>
+    <view wx:if="{{objectives.length}}" class="surface surface-list">
+      <swipe-row
+        wx:for="{{objectives}}"
+        wx:key="id"
+        divider="{{index > 0}}"
+        disabled="{{!canEdit || saving}}"
+        action-label="删除"
+        data-id="{{item.id}}"
+        bindaction="removeObjective"
+      >
+        <view class="list-item" hover-class="hover" data-id="{{item.id}}" bindtap="openObjective">
+          <view class="tile tile-orange"><text class="i i-trophy"></text></view>
+          <view class="list-main">
+            <view class="list-title">
+              <text class="truncate">{{item.title}}</text>
+              <text wx:if="{{item.shown}}" class="i i-sm i-eye muted" aria-label="显示在游戏内"></text>
             </view>
-            <view class="scoreboard-track"><view class="scoreboard-fill {{item.negative ? 'negative' : ''}}" style="width: {{item.width}}%"></view></view>
           </view>
+          <text class="list-end num">{{item.count}} 人</text>
+          <text class="i i-sm i-chevron-right muted"></text>
         </view>
-      </view>
-      <view class="surface-body scoreboard-section">
-        <view class="small muted">分数分布</view>
-        <view class="scoreboard-histogram">
-          <view wx:for="{{selected.histogram}}" wx:key="key" class="scoreboard-column">
-            <text class="scoreboard-column-count num">{{item.count || ''}}</text>
-            <view class="scoreboard-column-bar" style="height: {{item.height}}%"></view>
-          </view>
-        </view>
-        <view class="scoreboard-axis num muted">
-          <text>{{selected.axisFrom}}</text>
-          <text>{{selected.axisTo}}</text>
-        </view>
-      </view>
-    </block>
-  </view>
-
-  <!-- 参与者 -->
-  <view wx:if="{{selected}}" class="surface">
-    <view class="surface-head">
-      <text class="surface-title">参与者</text>
-      <view class="btn btn-sm {{canEdit && !saving ? '' : 'disabled'}}" hover-class="hover" bindtap="openScoreForm">
-        <text class="i i-sm i-plus"></text>
-        <text>添加</text>
-      </view>
+      </swipe-row>
     </view>
-    <view class="surface-body scoreboard-objectives">
-      <view class="search scoreboard-search">
-        <text class="i i-search"></text>
-        <input value="{{keyword}}" placeholder="搜索参与者" placeholder-class="placeholder" bindinput="onKeyword" />
-        <text wx:if="{{keyword}}" class="i i-x" bindtap="clearKeyword"></text>
-      </view>
-      <view class="chips">
-        <view wx:for="{{sorts}}" wx:key="value" class="chip {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickSort">{{item.label}}</view>
-      </view>
+    <view wx:elif="{{objectiveKeyword}}" class="surface">
+      <empty-state icon="search" title="没有匹配的计分项" compact />
     </view>
-    <view class="surface-list">
-      <view wx:for="{{participants}}" wx:key="id" class="list-item">
-        <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
-        <view class="list-main">
-          <view class="list-title"><text class="truncate">{{item.name}}</text></view>
-          <view class="list-sub truncate">
-            <text class="badge tone-{{item.tone}}">{{item.tag}}</text>
-            <text wx:if="{{item.block}}" class="small muted"> {{item.block}}</text>
-          </view>
-        </view>
-        <text class="num scoreboard-score">{{item.score}}</text>
-        <view class="btn btn-sm btn-icon btn-ghost {{canEdit && !saving && !item.block ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="openScoreForm">
-          <text class="i i-sm i-pencil"></text>
-        </view>
-        <view class="btn btn-sm btn-icon btn-ghost {{canEdit && !saving && !item.block ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="resetParticipant">
-          <text class="i i-sm i-eraser"></text>
-        </view>
-      </view>
-      <empty-state wx:if="{{!participants.length}}" icon="users" title="{{keyword ? '没有匹配的参与者' : '还没有参与者'}}" compact />
-      <view wx:if="{{participants.length}}" class="small muted scoreboard-footer">
-        <text wx:if="{{hasMore}}">上拉显示更多 · 已显示 {{participants.length}} / {{participantTotal}}</text>
-        <text wx:else>共 {{participantTotal}} 名</text>
-      </view>
+    <view wx:elif="{{empty}}" class="surface">
+      <empty-state icon="trophy" title="还没有计分项" desc="可以新建一个，或在游戏内用 /scoreboard objectives add 创建" compact />
     </view>
   </view>
 </view>
 
 <!-- 新建计分项 -->
 <mp-half-screen-dialog show="{{!!objectiveForm}}" bindclose="closeObjectiveForm" title="新建计分项" subTitle="以 dummy 准则创建，分数只能通过命令或脚本修改">
-  <view slot="desc" class="form">
+  <view slot="desc" class="sheet-form">
     <view class="field">
       <text class="field-label">计分项 ID（必填）</text>
       <input class="field-input field-input-fill mono" value="{{objectiveForm.id}}" data-field="id" placeholder="例如 kills" placeholder-class="placeholder" bindinput="onObjectiveInput" />
@@ -168,42 +74,11 @@
     </view>
     <text wx:if="{{objectiveForm.command}}" class="code scoreboard-command" user-select>{{objectiveForm.command}}</text>
   </view>
-  <view slot="footer" class="sheet-actions">
+  <view slot="footer" class="sheet-buttons">
     <view class="btn btn-lg spacer {{saving ? 'disabled' : ''}}" hover-class="hover" bindtap="closeObjectiveForm">取消</view>
     <view class="btn btn-lg btn-primary spacer {{saving ? 'disabled' : ''}}" hover-class="hover" bindtap="commitObjectiveForm">
       <text wx:if="{{saving}}" class="i i-sm i-loader spin"></text>
       <text>创建</text>
-    </view>
-  </view>
-</mp-half-screen-dialog>
-
-<!-- 修改分数 / 添加参与者 -->
-<mp-half-screen-dialog show="{{!!scoreForm}}" bindclose="closeScoreForm" title="{{scoreForm.title}}" subTitle="{{scoreForm.subtitle}}">
-  <view slot="desc" class="form">
-    <view wx:if="{{scoreForm.adding}}" class="field">
-      <text class="field-label">参与者名称（必填）</text>
-      <input class="field-input field-input-fill" value="{{scoreForm.target}}" placeholder="在线玩家名，或虚拟玩家名如 #总计" placeholder-class="placeholder" bindinput="onScoreTarget" />
-    </view>
-    <view wx:else class="segmented">
-      <view wx:for="{{scoreForm.modes}}" wx:key="value" class="segmented-item {{item.active ? 'active' : ''}}" data-value="{{item.value}}" bindtap="pickMode">{{item.label}}</view>
-    </view>
-    <view class="field">
-      <text class="field-label">{{scoreForm.valueLabel}}（必填）</text>
-      <view class="row scoreboard-number">
-        <view class="btn btn-icon" hover-class="hover" data-step="-1" bindtap="stepScore"><text class="i i-sm i-minus"></text></view>
-        <input class="field-input field-input-fill num spacer" type="text" value="{{scoreForm.text}}" placeholder="整数" placeholder-class="placeholder" bindinput="onScoreText" />
-        <view class="btn btn-icon" hover-class="hover" data-step="1" bindtap="stepScore"><text class="i i-sm i-plus"></text></view>
-      </view>
-      <text wx:if="{{scoreForm.preview}}" class="field-hint num">{{scoreForm.preview}}</text>
-      <text wx:if="{{scoreForm.error}}" class="field-error">{{scoreForm.error}}</text>
-    </view>
-    <text wx:if="{{scoreForm.command}}" class="code scoreboard-command" user-select>{{scoreForm.command}}</text>
-  </view>
-  <view slot="footer" class="sheet-actions">
-    <view class="btn btn-lg spacer {{saving ? 'disabled' : ''}}" hover-class="hover" bindtap="closeScoreForm">取消</view>
-    <view class="btn btn-lg btn-primary spacer {{saving ? 'disabled' : ''}}" hover-class="hover" bindtap="commitScoreForm">
-      <text wx:if="{{saving}}" class="i i-sm i-loader spin"></text>
-      <text>{{scoreForm.adding ? '添加' : '保存'}}</text>
     </view>
   </view>
 </mp-half-screen-dialog>

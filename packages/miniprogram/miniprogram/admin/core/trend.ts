@@ -17,10 +17,15 @@ const RUNTIME_GAP_MS = 20_000;
 const RESOURCE_GAP_MS = 45_000;
 
 /**
- * 图表用色，顺序与 packages/ui/src/theme.ts 的 CHART_COLORS 一致。
+ * 图表用色：色板变量名（--chart-1 … --chart-8），下标与 packages/ui/src/theme.ts 的 CHART_COLORS 一致。
  * 总览原先的三条线继续用蓝 / 绿 / 紫，新增的进程与实体曲线沿用桌面端的下标。
+ * 实际颜色由 build-assets.mjs 按 iOS 强调色生成（scripts/ios-palette.mjs 的 IOS_CHART_COLORS）：
+ * 折线图用 core/palette.ts 按当前主题解析，图例圆点在 wxml 里写成 var(变量名)，两处随深浅色一起切换。
  */
-const CHART_COLORS = ["#a0bce8", "#6be6d3", "#7dbbff", "#b899eb", "#71dd8c", "#9f9ff8", "#ffc555", "#ff9f87"] as const;
+const CHART_COLORS = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5", "--chart-6", "--chart-7", "--chart-8"] as const;
+/** TPS 与在线玩家两张单线图的颜色（图例圆点与曲线共用，避免 wxml 再写一遍） */
+const TPS_COLOR = CHART_COLORS[2];
+const PLAYERS_COLOR = CHART_COLORS[4];
 
 /** 实体维度的固定名称。服务端目前只接受这三项，其余键按原样显示以备扩展。 */
 const DIMENSIONS: [string, string, string][] = [
@@ -33,6 +38,7 @@ const DIMENSIONS: [string, string, string][] = [
 export interface TrendSeries {
   /** 图例与点按读数 */
   name: string;
+  /** 色板变量名（如 "--chart-3"），折线图与图例按当前主题解析 */
   color: string;
   /** 0 左轴，1 右轴。内存图里主机与进程不在一个量级，进程走右轴。 */
   axis: 0 | 1;
@@ -46,6 +52,9 @@ export interface TrendView {
   end: number;
   /** 左轴上界（主机内存总量，MB）。0 表示按数据自适应。 */
   memoryMax: number;
+  /** TPS / 在线玩家图例圆点的颜色（色板变量名），没有曲线时图例也要显示 */
+  tpsColor: string;
+  playersColor: string;
   tps: TrendSeries[];
   players: TrendSeries[];
   /** 主机与各进程 CPU 占用率（%），同一条纵轴 */
@@ -57,7 +66,18 @@ export interface TrendView {
 /** 还没有采样时的空窗口，避免页面初次 setData 缺字段 */
 export function emptyTrend(now = Date.now(), span: MetricSpan = "60"): TrendView {
   const end = now;
-  return { begin: end - Number(span) * 60_000, end, memoryMax: 0, tps: [], players: [], cpu: [], memory: [], entities: [] };
+  return {
+    begin: end - Number(span) * 60_000,
+    end,
+    memoryMax: 0,
+    tpsColor: TPS_COLOR,
+    playersColor: PLAYERS_COLOR,
+    tps: [],
+    players: [],
+    cpu: [],
+    memory: [],
+    entities: [],
+  };
 }
 
 /** 把字符串收成合法档位；非法时保持原来的 1 小时 */
@@ -77,8 +97,10 @@ export function buildTrend(metrics: MetricsResult | null, span: MetricSpan, now:
     begin,
     end,
     memoryMax: metrics?.host?.memory.totalMb ?? 0,
-    tps: series("TPS", CHART_COLORS[2], trendPoints(history, (sample) => sample.tps, begin, end, RUNTIME_GAP_MS)),
-    players: series("在线玩家", CHART_COLORS[4], trendPoints(history, (sample) => sample.onlineCount, begin, end, RUNTIME_GAP_MS)),
+    tpsColor: TPS_COLOR,
+    playersColor: PLAYERS_COLOR,
+    tps: series("TPS", TPS_COLOR, trendPoints(history, (sample) => sample.tps, begin, end, RUNTIME_GAP_MS)),
+    players: series("在线玩家", PLAYERS_COLOR, trendPoints(history, (sample) => sample.onlineCount, begin, end, RUNTIME_GAP_MS)),
     cpu: cpuSeries(resources, begin, end),
     memory: memorySeries(resources, begin, end),
     entities: entitySeries(history, begin, end),

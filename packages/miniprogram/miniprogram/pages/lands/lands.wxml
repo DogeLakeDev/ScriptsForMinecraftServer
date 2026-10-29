@@ -1,0 +1,57 @@
+<view class="page">
+  <view wx:if="{{!configured}}" class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-title">尚未配置服务器地址</view>
+      <view class="callout-text">请在 core/server.ts 填写 mp-gateway 地址后重新编译。</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{error}}" class="callout tone-danger">
+    <text class="i i-alert"></text>
+    <view class="callout-body">
+      <view class="callout-title">无法读取领地</view>
+      <view class="callout-text">{{error}}</view>
+      <view class="link" bindtap="load">重试</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{!loading && !bound}}" class="surface">
+    <empty-state icon="user" title="尚未绑定游戏账号" desc="绑定后可查看自己的领地">
+      <view class="btn btn-primary" hover-class="hover" bindtap="openMe">去绑定</view>
+    </empty-state>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{loading && !lands.length}}" class="surface">
+      <view class="surface-body"><text class="small muted">读取中…</text></view>
+    </view>
+
+    <view wx:for="{{lands}}" wx:key="id" class="surface land-card">
+      <view class="surface-body">
+        <view class="row wrap">
+          <text class="b truncate land-name">{{item.name}}</text>
+          <text class="badge {{item.statusTone ? 'tone-' + item.statusTone : ''}}">{{item.statusLabel}}</text>
+        </view>
+        <view class="row wrap land-meta">
+          <text class="badge">{{item.levelText}}</text>
+          <text class="small muted">{{item.chunksText}}</text>
+          <text wx:if="{{item.relation}}" class="small muted">{{item.relation}}</text>
+        </view>
+        <view class="small muted">{{item.upkeepText}}</view>
+        <view wx:if="{{item.dueText}}" class="small text-danger">{{item.dueText}}</view>
+        <view wx:if="{{item.ownerName}}" class="small muted">所有者 {{item.ownerName}}</view>
+        <view class="land-actions">
+          <view class="btn" hover-class="hover" data-id="{{item.id}}" bindtap="openOnMap">
+            <text class="i i-location"></text>
+            <text>在地图中查看</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!loading && !lands.length}}" class="surface">
+      <empty-state icon="layers" title="还没有领地" desc="在游戏内创建领地后会显示在这里" />
+    </view>
+  </block>
+</view>

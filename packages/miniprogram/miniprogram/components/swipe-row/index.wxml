@@ -1,0 +1,48 @@
+<!-- 左滑露出操作按钮的列表行：操作区在内容层下方靠右，内容层左移后露出 -->
+<wxs module="swipe" src="./swipe.wxs"></wxs>
+<view class="swipe-row">
+  <view id="actions" class="swipe-actions">
+    <!-- 多个操作（actions 列表）：按顺序从左到右排列，点按时 action 事件带 detail.key -->
+    <block wx:if="{{actions.length}}">
+      <view
+        wx:for="{{actions}}"
+        wx:key="key"
+        class="swipe-action tone-{{item.tone || 'neutral'}} {{item.disabled ? 'disabled' : ''}}"
+        hover-class="hover"
+        aria-role="button"
+        aria-label="{{item.label}}"
+        data-key="{{item.key}}"
+        catchtap="onAction"
+      >
+        <text class="i i-lg i-{{item.icon}}"></text>
+      </view>
+    </block>
+    <!-- 单个操作（action-* 属性） -->
+    <view
+      wx:else
+      class="swipe-action tone-{{actionTone}} {{actionDisabled ? 'disabled' : ''}}"
+      hover-class="hover"
+      aria-role="button"
+      aria-label="{{actionLabel}}"
+      catchtap="onAction"
+    >
+      <text class="i i-lg i-{{actionIcon}}"></text>
+    </view>
+  </view>
+  <view
+    class="swipe-content {{divider ? 'swipe-divider' : ''}}"
+    data-disabled="{{disabled}}"
+    swipewidth="{{actionsWidth}}"
+    change:swipewidth="{{swipe.setWidth}}"
+    swipereset="{{resetSignal}}"
+    change:swipereset="{{swipe.reset}}"
+    bindtouchstart="{{swipe.start}}"
+    bindtouchmove="{{swipe.move}}"
+    bindtouchend="{{swipe.end}}"
+    bindtouchcancel="{{swipe.end}}"
+  >
+    <slot></slot>
+    <!-- 展开时盖住内容：点按只收起，不触发行内的开关等控件 -->
+    <view wx:if="{{opened}}" class="swipe-mask" catchtap="close"></view>
+  </view>
+</view>

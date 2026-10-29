@@ -1,4 +1,4 @@
-<!-- 玩家端「地图」：有地图时整页为画布，图层开关、缩放与定位按钮、选中信息浮在画布上；其余状态显示占位 -->
+<!-- 玩家端「地图」：有地图时整页为画布，面板顶边右上方为图层 / 定位胶囊，其余信息在底部可拖动面板里（Apple 地图版式）；其余状态显示占位 -->
 <view wx:if="{{!configured}}" class="page with-tabbar">
   <view class="callout tone-warning">
     <text class="i i-warning"></text>
@@ -21,41 +21,161 @@
     bindtouchcancel="onTouchEnd"
   ></canvas>
 
-  <view class="map-top">
-    <view class="chips">
-      <view class="chip map-chip {{showPlayers ? 'active' : ''}}" bindtap="togglePlayers">
-        <text class="i i-sm i-users"></text>玩家 {{onlineCount}}
-      </view>
-      <view class="chip map-chip {{showRegions ? 'active' : ''}}" bindtap="toggleRegions">
-        <text class="i i-sm i-layers"></text>区域与领地
-      </view>
-      <view class="chip map-chip {{showChunks ? 'active' : ''}}" bindtap="toggleChunks">
-        <text class="i i-sm i-overview"></text>区块
-      </view>
-    </view>
-    <view wx:if="{{stale}}" class="badge tone-warning map-stale">玩家位置已停止更新</view>
-  </view>
+  <view wx:if="{{stale}}" class="badge tone-warning map-stale">玩家位置已停止更新</view>
 
-  <view class="map-tools">
-    <view class="map-tool" hover-class="hover" bindtap="zoomIn"><text class="i i-plus"></text></view>
-    <view class="map-tool" hover-class="hover" bindtap="zoomOut"><text class="i i-minus"></text></view>
-    <view class="map-tool" hover-class="hover" bindtap="resetView"><text class="i i-globe"></text></view>
-    <view wx:if="{{canLocate}}" class="map-tool" hover-class="hover" bindtap="locateMe"><text class="i i-user"></text></view>
-  </view>
-
-  <view class="map-bottom">
-    <view wx:if="{{selectedTitle}}" class="map-card">
-      <view class="list-main">
-        <view class="b truncate">{{selectedTitle}}</view>
-        <view class="list-sub num">{{selectedDesc}}</view>
+  <map-sheet detent="{{sheetDetent}}" content-key="{{sheetView}}" binddetentchange="onSheetDetent" bindlayout="onSheetLayout">
+    <!-- 控件胶囊：图层（打开图层面板）、定位到我（已绑定游戏账号时）；放在面板顶边右上方，随面板升降（iOS 26 地图） -->
+    <view slot="accessory" class="map-controls glass">
+      <view class="map-control {{sheetView === 'layers' ? 'active' : ''}}" hover-class="hover" aria-role="button" aria-label="地图图层" bindtap="openLayers">
+        <text class="i i-layers"></text>
       </view>
-      <view class="btn btn-sm btn-icon btn-ghost" hover-class="hover" bindtap="clearSelection"><text class="i i-x"></text></view>
+      <block wx:if="{{canLocate}}">
+        <view class="map-control-divider"></view>
+        <view class="map-control" hover-class="hover" aria-role="button" aria-label="定位到我" bindtap="locateMe">
+          <text class="i i-location"></text>
+        </view>
+      </block>
     </view>
-    <view wx:if="{{otherDimensions.length}}" class="map-card small">
-      <text class="muted">不在主世界：</text>
-      <text wx:for="{{otherDimensions}}" wx:key="name" class="map-other">{{item.name}}（{{item.dimension}}）</text>
+
+    <!-- 面板头部：列表为搜索框，地点卡为标题 + 关闭，图层面板为标题 + 关闭 -->
+    <view slot="header">
+      <view wx:if="{{sheetView === 'list'}}" class="search map-search">
+        <text class="i i-search"></text>
+        <input
+          value="{{query}}"
+          placeholder="搜索玩家、区域、领地"
+          placeholder-class="placeholder"
+          confirm-type="search"
+          adjust-position="{{false}}"
+          bindinput="onSearchInput"
+          bindfocus="onSearchFocus"
+        />
+        <view wx:if="{{query}}" class="map-search-clear" aria-role="button" aria-label="清除" bindtap="clearSearch"><text class="i i-x"></text></view>
+      </view>
+      <view wx:elif="{{sheetView === 'place'}}" class="map-sheet-head">
+        <view class="list-main">
+          <view class="map-sheet-title truncate">{{place.title}}</view>
+          <view class="list-sub">{{place.subtitle}}</view>
+        </view>
+        <view class="map-close" hover-class="hover" aria-role="button" aria-label="关闭" bindtap="clearSelection"><text class="i i-x"></text></view>
+      </view>
+      <view wx:else class="map-sheet-head">
+        <view class="map-sheet-title flex1">地图图层</view>
+        <view class="map-close" hover-class="hover" aria-role="button" aria-label="关闭" bindtap="closeLayers"><text class="i i-x"></text></view>
+      </view>
     </view>
-  </view>
+
+    <!-- 列表：在线玩家、其他维度、区域与领地 -->
+    <view wx:if="{{sheetView === 'list'}}" class="map-sheet-content">
+      <view wx:if="{{listEmpty}}" class="map-empty">没有匹配的玩家、区域或领地</view>
+      <view wx:elif="{{!query && onlineCount === 0}}" class="map-empty">当前没有玩家在线</view>
+
+      <view wx:if="{{nearbyPlayers.length}}" class="section">
+        <view class="map-group-title">{{nearbyPlayers.length}} 名在线玩家</view>
+        <view class="surface">
+          <view wx:for="{{nearbyPlayers}}" wx:key="name" class="list-item" hover-class="hover" data-name="{{item.name}}" bindtap="onPlayerRow">
+            <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
+            <view class="list-main list-title">
+              <text class="truncate">{{item.name}}</text>
+              <text wx:if="{{item.me}}" class="badge tone-info">我</text>
+            </view>
+            <text wx:if="{{item.end}}" class="list-end num">{{item.end}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{otherDimensions.length}}" class="section">
+        <view class="map-group-title">其他维度</view>
+        <view class="surface">
+          <view wx:for="{{otherDimensions}}" wx:key="name" class="list-item">
+            <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
+            <view class="list-main list-title">
+              <text class="truncate">{{item.name}}</text>
+              <text wx:if="{{item.me}}" class="badge tone-info">我</text>
+            </view>
+            <text class="list-end">{{item.end}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{places.length}}" class="section">
+        <view class="map-group-title">区域与领地</view>
+        <view class="surface">
+          <view wx:for="{{places}}" wx:key="key" class="list-item" hover-class="hover" data-kind="{{item.kind}}" data-id="{{item.id}}" bindtap="onPlaceRow">
+            <view class="tile {{item.tile}}"><text class="i i-{{item.icon}}"></text></view>
+            <view class="list-main truncate">{{item.name}}</view>
+            <text class="list-end">{{item.typeLabel}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 地点卡：操作按钮行、详情、子区域 -->
+    <view wx:elif="{{sheetView === 'place'}}" class="map-sheet-content">
+      <view class="map-actions">
+        <view
+          wx:for="{{place.actions}}"
+          wx:key="key"
+          class="map-action {{item.active ? 'active' : ''}}"
+          hover-class="hover"
+          aria-role="button"
+          data-key="{{item.key}}"
+          bindtap="onPlaceAction"
+        >
+          <text class="i i-lg i-{{item.icon}}"></text>
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+      <view class="surface">
+        <view wx:for="{{place.details}}" wx:key="label" class="list-item map-plain-row">
+          <text class="list-main">{{item.label}}</text>
+          <text class="list-end num selectable">{{item.value}}</text>
+        </view>
+      </view>
+      <view wx:if="{{place.areas.length}}" class="section">
+        <view class="map-group-title">子区域</view>
+        <view class="surface">
+          <view wx:for="{{place.areas}}" wx:key="id" class="list-item map-plain-row" hover-class="hover" data-id="{{item.id}}" bindtap="onAreaRow">
+            <view class="list-main truncate">{{item.name}}</view>
+            <text wx:if="{{item.current}}" class="list-end">当前位置</text>
+            <text class="i i-chevron-right muted"></text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 图层：四个开关 + 回到全图 -->
+    <view wx:else class="map-sheet-content">
+      <view class="surface">
+        <view class="list-item" bindtap="togglePlayers">
+          <view class="tile tile-orange"><text class="i i-users"></text></view>
+          <text class="list-main">玩家</text>
+          <view class="switch {{showPlayers ? 'on' : ''}}"></view>
+        </view>
+        <view class="list-item" bindtap="toggleRegions">
+          <view class="tile tile-blue"><text class="i i-shield"></text></view>
+          <text class="list-main">区域</text>
+          <view class="switch {{showRegions ? 'on' : ''}}"></view>
+        </view>
+        <view class="list-item" bindtap="toggleLands">
+          <view class="tile tile-green"><text class="i i-layers"></text></view>
+          <text class="list-main">领地</text>
+          <view class="switch {{showLands ? 'on' : ''}}"></view>
+        </view>
+        <view class="list-item" bindtap="toggleChunks">
+          <view class="tile tile-neutral"><text class="i i-overview"></text></view>
+          <text class="list-main">区块网格</text>
+          <view class="switch {{showChunks ? 'on' : ''}}"></view>
+        </view>
+      </view>
+      <view class="surface">
+        <view class="list-item" hover-class="hover" bindtap="resetView">
+          <view class="tile tile-neutral"><text class="i i-globe"></text></view>
+          <text class="list-main map-link">回到全图</text>
+        </view>
+      </view>
+    </view>
+  </map-sheet>
 </view>
 
 <view wx:else class="page with-tabbar">

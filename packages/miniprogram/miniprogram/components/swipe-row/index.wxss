@@ -1,0 +1,68 @@
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+}
+/* 操作区：固定在行的右侧，被内容层盖住，内容左移后露出 */
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 8px;
+}
+/* 操作按钮：iOS 27 列表滑动操作的圆形按钮，实色底 + 白色图标 */
+.swipe-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--c-gray);
+  color: var(--c-on-tint);
+}
+.swipe-action.tone-danger {
+  background: var(--c-danger);
+}
+.swipe-action.hover {
+  opacity: 0.8;
+}
+/* 当前不可执行（只读、本地链接模块、平台包）：仍可点按，由页面提示原因 */
+.swipe-action.disabled {
+  opacity: 0.4;
+}
+
+/* 内容层：不透明的卡片底色，收起时完全盖住操作区 */
+.swipe-content {
+  position: relative;
+  z-index: 1;
+  background: var(--c-block);
+}
+/* 左移中：圆角灰底的整行浮起（iOS 信息列表左滑时的样式）；灰底叠在卡片底色上，保持不透明 */
+.swipe-content.swiping {
+  border-radius: var(--radius-xxl);
+  background: linear-gradient(var(--c-fill-2), var(--c-fill-2)), var(--c-block);
+}
+/* 行间分隔线：与 .list-item 相同，从文字起点（16 + 底块 30 + 间距 12）画到行尾；左移时隐藏 */
+.swipe-divider::before {
+  content: "";
+  position: absolute;
+  left: 58px;
+  right: 0;
+  top: 0;
+  border-top: 0.5px solid var(--c-line);
+}
+.swipe-divider.swiping::before {
+  opacity: 0;
+}
+.swipe-mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}

@@ -6,7 +6,8 @@
  * 只在首次生成访问令牌时把令牌打印一次；之后只提示令牌文件位置，避免令牌反复出现在服务日志里。
  */
 import { HELP_TEXT, parseGatewayConfig, type GatewayConfig } from "./config.js";
-import { startGateway } from "./server.js";
+import { defaultLog, startGateway } from "./server.js";
+import { openCliServiceControl, startServiceGuard } from "./service-guard.js";
 
 let config: GatewayConfig | null;
 try {
@@ -40,14 +41,24 @@ if (config.wechat) {
   console.log("  微信登录  未启用（设置 SFMC_MP_WX_APPID 与 SFMC_MP_WX_SECRET 后，玩家端与按角色授权管理端才可用）");
 }
 console.log(config.mapUrl ? `  地图服务  ${config.mapUrl}` : "  地图服务  未开启（实例没有 configs/bluemap.json，可用 --map-url 指定）");
+console.log(config.startServices.length ? `  依赖服务  启动时确保运行: ${config.startServices.join("、")}` : "  依赖服务  不检查（--start-services none）");
 if (config.host !== "127.0.0.1" && config.host !== "localhost" && config.host !== "::1") {
   console.log("  注意：网关直接监听非本机地址。小程序正式版只能访问 https/wss，请在前面配置 TLS 反向代理。");
 }
+
+/** 服务器重启后实例服务可能没有自启；网关开始监听后在后台把依赖服务拉起，不阻塞请求处理。 */
+const resolvedConfig = config;
+const guard = startServiceGuard({
+  names: config.startServices,
+  open: () => openCliServiceControl(resolvedConfig),
+  log: defaultLog,
+});
 
 let stopping = false;
 const stop = () => {
   if (stopping) return;
   stopping = true;
+  guard.stop();
   void gateway.close().finally(() => process.exit(0));
 };
 process.on("SIGINT", stop);

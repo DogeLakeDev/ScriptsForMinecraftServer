@@ -1,0 +1,18 @@
+/* 领地卡片：标题行与操作按钮间距 */
+.land-card + .land-card {
+  margin-top: 0;
+}
+.land-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.land-meta {
+  margin-top: 8px;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+.land-actions {
+  margin-top: 12px;
+}

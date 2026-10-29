@@ -6,22 +6,20 @@
   padding: 32px 24px;
   text-align: center;
 }
-.tile-lg {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-}
+/* 大号图标底块 .tile-lg 见 styles/base.wxss */
 .conn-empty-title {
   margin-top: 4px;
-  font-size: 17px;
-  line-height: 24px;
+  font-size: var(--fs-title-3);
+  line-height: var(--lh-title-3);
+  letter-spacing: var(--ls-title-3);
   font-weight: 600;
 }
 .conn-empty-desc {
   margin-bottom: 8px;
   color: var(--c-text-3);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .conn-actions {
   margin-top: 10px;

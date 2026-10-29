@@ -1,15 +1,15 @@
 <view class="page">
   <conn-banner />
   <!-- 在线玩家 -->
-  <view class="surface">
-    <view class="surface-head">
-      <view class="surface-title">
+  <view class="section">
+    <view class="section-header">
+      <view class="section-title">
         <view>在线玩家</view>
-        <view class="surface-sub">{{synced}}</view>
+        <view class="section-sub">{{synced}}</view>
       </view>
       <text class="badge tone-{{fresh ? 'success' : 'warning'}}"><text class="dot tone-{{fresh ? 'success' : 'warning'}}"></text>{{fresh ? players.length + ' 人在线' : '在线状态未知'}}</text>
     </view>
-    <view class="surface-body">
+    <view class="surface surface-body">
       <view wx:if="{{players.length}}" class="player-chips">
         <view wx:for="{{players}}" wx:key="name" class="player-chip {{fresh ? '' : 'stale'}}">
           <text class="avatar avatar-sm" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
@@ -21,102 +21,109 @@
   </view>
 
   <!-- 名单与权限 -->
-  <view class="surface">
-    <view class="surface-head">
-      <text class="surface-title">名单与权限</text>
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">名单与权限</text>
       <view class="segmented">
         <view class="segmented-item {{json ? '' : 'active'}}" bindtap="toggleJson">列表</view>
         <view class="segmented-item {{json ? 'active' : ''}}" bindtap="toggleJson">JSON</view>
       </view>
     </view>
-    <view class="surface-body kinds">
-      <view class="chips">
-        <view
-          wx:for="{{kinds}}"
-          wx:key="value"
-          class="chip {{kind === item.value ? 'active' : ''}}"
-          data-value="{{item.value}}"
-          bindtap="switchKind"
-        >
-          <text>{{item.label}}</text>
-          <text class="chip-count">{{item.count}}</text>
+    <view class="surface">
+      <view class="surface-body kinds">
+        <view class="chips">
+          <view
+            wx:for="{{kinds}}"
+            wx:key="value"
+            class="chip {{kind === item.value ? 'active' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="switchKind"
+          >
+            <text>{{item.label}}</text>
+            <text class="chip-count">{{item.count}}</text>
+          </view>
         </view>
+        <view wx:if="{{showingBindings}}" class="small muted">来自绑定记录，显示玩家名、XUID、QQ 通道和绑定时间。</view>
       </view>
-      <view wx:if="{{showingBindings}}" class="small muted">来自绑定记录，显示玩家名、XUID、QQ 通道和绑定时间。</view>
+
+      <!-- 允许名单：绑定记录（只读） -->
+      <block wx:if="{{showingBindings}}">
+        <view wx:if="{{json}}" class="surface-body">
+          <text class="code" user-select>{{bindingsJson}}</text>
+        </view>
+        <view wx:else class="surface-list">
+          <view
+            wx:for="{{bindings}}"
+            wx:key="key"
+            class="list-item"
+            hover-class="{{activityEnabled && item.xuid ? 'hover' : 'none'}}"
+            data-xuid="{{item.xuid}}"
+            data-name="{{item.name}}"
+            bindtap="openActivity"
+          >
+            <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
+            <view class="list-main">
+              <view class="list-title"><text class="truncate">{{item.name}}</text></view>
+              <view class="list-sub mono truncate">XUID {{item.xuid}}</view>
+              <view class="list-sub mono truncate">{{item.channel}}</view>
+            </view>
+            <view class="list-end-stack">
+              <text class="badge tone-success"><text class="dot tone-success"></text>已绑定</text>
+              <text class="small muted">{{item.time}}</text>
+            </view>
+            <text wx:if="{{activityEnabled && item.xuid}}" class="i i-sm i-chevron-right muted"></text>
+          </view>
+          <empty-state wx:if="{{loaded && !bindings.length}}" icon="users" title="还没有绑定的玩家" desc="玩家在游戏内完成绑定后会出现在这里" />
+        </view>
+      </block>
+
+      <!-- BDS / SFMC 权限：可编辑草稿 -->
+      <block wx:else>
+        <view wx:if="{{json}}" class="surface-body">
+          <textarea
+            class="json-editor mono"
+            value="{{text}}"
+            maxlength="-1"
+            disabled="{{!editable || saving}}"
+            show-confirm-bar="{{false}}"
+            disable-default-padding
+            bindinput="onJsonInput"
+          />
+          <view wx:if="{{syntaxError}}" class="field-error">JSON 语法错误，需为数组</view>
+        </view>
+        <view wx:elif="{{syntaxError}}" class="surface-body">
+          <empty-state icon="warning" title="JSON 语法错误" desc="请切换到 JSON 视图修复后再编辑列表" compact />
+        </view>
+        <view wx:else class="surface-list">
+          <!-- 左滑露出「编辑」「删除」：只读时不能左滑 -->
+          <swipe-row
+            wx:for="{{entries}}"
+            wx:key="index"
+            divider="{{index > 0}}"
+            disabled="{{!editable}}"
+            actions="{{entryActions}}"
+            data-index="{{item.index}}"
+            bindaction="onEntryAction"
+          >
+            <view class="list-item">
+              <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
+              <view class="list-main">
+                <view class="list-title"><text class="truncate">{{item.name}}</text></view>
+                <view class="list-sub mono truncate">{{item.sub}}</view>
+              </view>
+              <text class="badge tone-{{item.badge.tone}}">{{item.badge.label}}</text>
+            </view>
+          </swipe-row>
+          <empty-state wx:if="{{loaded && !entries.length}}" icon="users" title="名单为空" compact />
+          <view class="add-row">
+            <view class="btn btn-sm {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="openEditor">
+              <text class="i i-sm i-plus"></text>
+              <text>添加玩家</text>
+            </view>
+          </view>
+        </view>
+      </block>
     </view>
-
-    <!-- 允许名单：绑定记录（只读） -->
-    <block wx:if="{{showingBindings}}">
-      <view wx:if="{{json}}" class="surface-body">
-        <text class="code" user-select>{{bindingsJson}}</text>
-      </view>
-      <view wx:else class="surface-list">
-        <view
-          wx:for="{{bindings}}"
-          wx:key="key"
-          class="list-item"
-          hover-class="{{activityEnabled && item.xuid ? 'hover' : 'none'}}"
-          data-xuid="{{item.xuid}}"
-          data-name="{{item.name}}"
-          bindtap="openActivity"
-        >
-          <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
-          <view class="list-main">
-            <view class="list-title"><text class="truncate">{{item.name}}</text></view>
-            <view class="list-sub mono truncate">XUID {{item.xuid}}</view>
-            <view class="list-sub mono truncate">{{item.channel}}</view>
-          </view>
-          <view class="task-end">
-            <text class="badge tone-success">已绑定</text>
-            <text class="small muted">{{item.time}}</text>
-          </view>
-          <text wx:if="{{activityEnabled && item.xuid}}" class="i i-sm i-chevron-right muted"></text>
-        </view>
-        <empty-state wx:if="{{loaded && !bindings.length}}" icon="users" title="还没有绑定的玩家" desc="玩家在游戏内完成绑定后会出现在这里" />
-      </view>
-    </block>
-
-    <!-- BDS / SFMC 权限：可编辑草稿 -->
-    <block wx:else>
-      <view wx:if="{{json}}" class="surface-body">
-        <textarea
-          class="json-editor mono"
-          value="{{text}}"
-          maxlength="-1"
-          disabled="{{!editable || saving}}"
-          show-confirm-bar="{{false}}"
-          disable-default-padding
-          bindinput="onJsonInput"
-        />
-        <view wx:if="{{syntaxError}}" class="field-error">JSON 语法错误，需为数组</view>
-      </view>
-      <view wx:elif="{{syntaxError}}" class="surface-body">
-        <empty-state icon="warning" title="JSON 语法错误" desc="请切换到 JSON 视图修复后再编辑列表" compact />
-      </view>
-      <view wx:else class="surface-list">
-        <view wx:for="{{entries}}" wx:key="index" class="list-item">
-          <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
-          <view class="list-main">
-            <view class="list-title"><text class="truncate">{{item.name}}</text></view>
-            <view class="list-sub mono truncate">{{item.sub}}</view>
-          </view>
-          <text class="badge tone-{{item.badge.tone}}">{{item.badge.label}}</text>
-          <view class="btn btn-sm btn-icon btn-ghost {{editable ? '' : 'disabled'}}" data-index="{{item.index}}" bindtap="openEditor">
-            <text class="i i-sm i-pencil"></text>
-          </view>
-          <view class="btn btn-sm btn-icon btn-danger-soft {{editable ? '' : 'disabled'}}" data-index="{{item.index}}" bindtap="removeEntry">
-            <text class="i i-sm i-trash"></text>
-          </view>
-        </view>
-        <empty-state wx:if="{{loaded && !entries.length}}" icon="users" title="名单为空" compact />
-        <view class="add-row">
-          <view class="btn btn-sm {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="openEditor">
-            <text class="i i-sm i-plus"></text>
-            <text>添加玩家</text>
-          </view>
-        </view>
-      </view>
-    </block>
   </view>
 
   <view wx:if="{{!showingBindings && (dirty || saving)}}" class="save-bar">
@@ -129,7 +136,7 @@
 
 <!-- 条目编辑 -->
 <mp-half-screen-dialog show="{{!!editing}}" bindclose="closeEditor" title="{{editing.mode === 'new' ? '添加玩家' : '编辑条目'}}">
-  <view slot="desc" class="form">
+  <view slot="desc" class="sheet-form">
     <view class="field">
       <text class="field-label">玩家名{{kind !== 'permissions' ? '（必填）' : ''}}</text>
       <input class="field-input field-input-fill" value="{{kind === 'sfmcPermissions' ? draft.player_name : draft.name}}" data-field="{{kind === 'sfmcPermissions' ? 'player_name' : 'name'}}" placeholder="例如 Steve" placeholder-class="placeholder" bindinput="onDraftInput" />
@@ -166,7 +173,7 @@
       <view class="switch {{draft.ignoresPlayerLimit ? 'on' : ''}}" bindtap="toggleIgnoresLimit"></view>
     </view>
   </view>
-  <view slot="footer" class="sheet-actions">
+  <view slot="footer" class="sheet-buttons">
     <view class="btn btn-lg spacer" hover-class="hover" bindtap="closeEditor">取消</view>
     <view class="btn btn-lg btn-primary spacer" hover-class="hover" bindtap="commitEditor">{{editing.mode === 'new' ? '加入草稿' : '更新草稿'}}</view>
   </view>

@@ -1,4 +1,8 @@
 {
   "navigationBarTitleText": "模块管理",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "glass-tab-bar": "/components/glass-tab-bar/index",
+    "swipe-row": "/components/swipe-row/index"
+  }
 }

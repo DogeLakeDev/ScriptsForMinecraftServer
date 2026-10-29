@@ -1,5 +1,80 @@
-<view class="page with-tabbar">
-  <view class="surface">
-    <empty-state icon="activity" title="排行榜" desc="功能设计中，敬请期待" />
+<view class="page with-tabbar {{myRank.show ? 'rank-with-bar' : ''}}">
+  <view wx:if="{{!configured}}" class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-title">尚未配置服务器地址</view>
+      <view class="callout-text">请在 core/server.ts 填写 mp-gateway 地址后重新编译。</view>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view class="segmented">
+      <view class="segmented-item {{tab === 'online' ? 'active' : ''}}" data-tab="online" bindtap="pickTab">在线时长</view>
+      <view class="segmented-item {{tab === 'wealth' ? 'active' : ''}}" data-tab="wealth" bindtap="pickTab">财富</view>
+      <view class="segmented-item {{tab === 'scoreboard' ? 'active' : ''}}" data-tab="scoreboard" bindtap="pickTab">计分板</view>
+    </view>
+
+    <view wx:if="{{tab === 'online'}}" class="segmented">
+      <view class="segmented-item {{metric === 'today' ? 'active' : ''}}" data-metric="today" bindtap="pickMetric">今日</view>
+      <view class="segmented-item {{metric === 'month' ? 'active' : ''}}" data-metric="month" bindtap="pickMetric">本月</view>
+      <view class="segmented-item {{metric === 'total' ? 'active' : ''}}" data-metric="total" bindtap="pickMetric">总计</view>
+    </view>
+
+    <scroll-view wx:if="{{tab === 'scoreboard' && objectives.length}}" class="rank-chips" scroll-x enable-flex>
+      <view
+        wx:for="{{objectives}}"
+        wx:key="id"
+        class="chip {{objectiveId === item.id ? 'active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="pickObjective"
+      >{{item.displayName || item.id}}</view>
+    </scroll-view>
+
+    <view wx:if="{{error}}" class="callout tone-danger">
+      <text class="i i-alert"></text>
+      <view class="callout-body">
+        <view class="callout-title">无法读取排行</view>
+        <view class="callout-text">{{error}}</view>
+        <view class="link" bindtap="load">重试</view>
+      </view>
+    </view>
+
+    <view wx:elif="{{note && (!available || !rows.length)}}" class="surface">
+      <empty-state icon="activity" title="{{note}}" />
+    </view>
+
+    <block wx:else>
+      <view wx:if="{{note}}" class="callout tone-warning">
+        <text class="i i-warning"></text>
+        <view class="callout-body"><view class="callout-text">{{note}}</view></view>
+      </view>
+
+      <view class="surface">
+        <view wx:if="{{loading && !rows.length}}" class="surface-body">
+          <text class="small muted">读取中…</text>
+        </view>
+        <view wx:elif="{{rows.length}}" class="surface-list">
+          <view wx:for="{{rows}}" wx:key="playerId" class="list-item">
+            <text class="rank-num num">{{item.rank}}</text>
+            <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
+            <view class="list-main">
+              <view class="list-title"><text class="truncate">{{item.playerName}}</text></view>
+            </view>
+            <text class="num muted">{{item.display}}</text>
+          </view>
+        </view>
+        <empty-state wx:elif="{{!loading}}" icon="users" title="暂无排行数据" desc="{{unit ? '单位：' + unit : ''}}" />
+      </view>
+    </block>
+  </block>
+
+  <!-- 我的名次：浮在标签栏上方的玻璃条 -->
+  <view wx:if="{{myRank.show}}" class="rank-my glass">
+    <text class="rank-num num">{{myRank.rankText}}</text>
+    <text class="avatar avatar-sm" style="background: hsl({{myRank.hue}}, 55%, 62%)">{{myRank.initial}}</text>
+    <view class="list-main">
+      <view class="list-title"><text class="truncate">{{myRank.name}}</text></view>
+    </view>
+    <text class="num b">{{myRank.display}}</text>
   </view>
 </view>

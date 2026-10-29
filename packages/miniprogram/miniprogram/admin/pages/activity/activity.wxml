@@ -28,10 +28,10 @@
     <view wx:if="{{stats}}" class="surface">
       <view class="surface-body">
         <view class="activity-stats">
-          <view class="activity-stat"><text class="small muted">记录</text><text class="activity-stat-value num">{{stats.total}}</text></view>
-          <view class="activity-stat"><text class="small muted">玩家</text><text class="activity-stat-value num">{{stats.actors}}</text></view>
-          <view class="activity-stat"><text class="small muted">警告</text><text class="activity-stat-value num {{stats.warn ? 'text-warning' : ''}}">{{stats.warn}}</text></view>
-          <view class="activity-stat"><text class="small muted">错误</text><text class="activity-stat-value num {{stats.error ? 'text-danger' : ''}}">{{stats.error}}</text></view>
+          <view class="stat"><text class="small muted">记录</text><text class="stat-value">{{stats.total}}</text></view>
+          <view class="stat"><text class="small muted">玩家</text><text class="stat-value">{{stats.actors}}</text></view>
+          <view class="stat"><text class="small muted">警告</text><text class="stat-value {{stats.warn ? 'text-warning' : ''}}">{{stats.warn}}</text></view>
+          <view class="stat"><text class="small muted">错误</text><text class="stat-value {{stats.error ? 'text-danger' : ''}}">{{stats.error}}</text></view>
         </view>
       </view>
       <view wx:if="{{stats.types.length}}" class="surface-body activity-section">

@@ -1,18 +1,21 @@
+/* 任务之间的分隔线与列表行一致：从文字起点（16 + 底块 30 + 间距 12）画到行尾 */
 .task + .task {
+  position: relative;
+}
+.task + .task::before {
+  content: "";
+  position: absolute;
+  left: 58px;
+  right: 0;
+  top: 0;
   border-top: 0.5px solid var(--c-line);
 }
-.task-end {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex: none;
-}
+/* 展开详情与标题文字左对齐 */
 .task-detail {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 0 8px 12px 52px;
+  margin: 0 16px 16px 58px;
 }
 .steps {
   display: flex;
@@ -27,6 +30,9 @@
 .step-main {
   flex: 1;
   min-width: 0;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .step-message {
   margin-top: 2px;

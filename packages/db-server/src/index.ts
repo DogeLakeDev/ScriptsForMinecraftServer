@@ -66,6 +66,10 @@ import { createQqBindRoutes } from "./routes/qq-bind.js";
 import { createWechatBindRoutes } from "./routes/wechat-bind.js";
 import { createWechatActivityRoutes } from "./routes/wechat-activity.js";
 import { createScoreboardRoutes } from "./routes/scoreboard.js";
+import { createRankRoutes } from "./routes/rank.js";
+import { createWechatPlayerRoutes } from "./routes/wechat-player.js";
+import { createMapLandsRoutes } from "./routes/map-lands.js";
+import { ScoreboardStore } from "./domain/scoreboard.js";
 import { createQqEventsRoutes } from "./routes/qq-events.js";
 import { createQqJoinRoutes, type JoinFeatureFlags } from "./routes/qq-join.js";
 import { createStatusRoutes } from "./routes/status.js";
@@ -279,8 +283,15 @@ const healthRoutes = createHealthRoutes();
 // 指标独立落库，避免写入业务模块正在持有的跨请求事务。
 const metricsDb = openDatabase(path.join(path.dirname(env.DB_PATH), "runtime-metrics.sqlite"));
 const statusRoutes = createStatusRoutes({ query: createQuery(metricsDb) });
-/** 世界计分板快照（只在内存中，供桌面端 / 小程序「计分板」页经 CLI 读取） */
-const scoreboardRoutes = createScoreboardRoutes();
+/**
+ * 世界计分板快照（只在内存中）。
+ * 排行榜的财富 / 公开计分项与管理端「计分板」页共用同一实例，避免两份快照不同步。
+ */
+const scoreboardStore = new ScoreboardStore();
+const scoreboardRoutes = createScoreboardRoutes({ store: scoreboardStore });
+const rankRoutes = createRankRoutes({ query, scoreboard: scoreboardStore, projectRoot: env.PROJECT_ROOT });
+const wechatPlayerRoutes = createWechatPlayerRoutes({ query });
+const mapLandsRoutes = createMapLandsRoutes({ query });
 for (const name of PLATFORM_MONITORING_SERVICES) serviceRegistry.registerHandler(PLATFORM_SERVICE_OWNER, name, async () => {
   const response = await fetch(`http://127.0.0.1:${env.PORT}/api/sfmc/metrics`, { signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Error("平台运行指标读取失败");
@@ -658,6 +669,9 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse): Prom
     if (await bindConfirmRoutes(ctxBase)) return;
     if (await wechatBindRoutes(ctxBase)) return;
     if (await wechatActivityRoutes(ctxBase)) return;
+    if (await wechatPlayerRoutes(ctxBase)) return;
+    if (await rankRoutes(ctxBase)) return;
+    if (await mapLandsRoutes(ctxBase)) return;
     if (await qqJoinRoutes(ctxBase)) return;
     if (await qqEventsRoutes(ctxBase)) return;
     if (await messagesRoutes(ctxBase)) return;

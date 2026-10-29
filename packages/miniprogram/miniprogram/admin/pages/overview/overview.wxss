@@ -4,61 +4,53 @@
   gap: 12px;
   margin: 0 -8px;
   padding: 6px 8px;
-  border-radius: 14px;
+  border-radius: var(--radius-l);
 }
 .instance-head.hover {
   background: var(--c-fill);
 }
 
-/* 状态条：2×2 网格（桌面端为一行四格） */
+/*
+ * 状态条：2×2 网格（桌面端为一行四格）。iOS 风格的指标小卡：分组卡片底色，二级文字色标签 + Title 2 数值；
+ * 告警（TPS 偏低）只把数值染成橙色，卡片底色不变，保证对比度。
+ */
 .strip {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 12px;
 }
 .strip-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--c-pastel-1);
-}
-.strip-item:nth-child(2),
-.strip-item:nth-child(3) {
-  background: var(--c-pastel-2);
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: var(--radius-xl);
+  background: var(--c-block);
 }
 .strip-item.hover {
-  opacity: 0.8;
+  opacity: 0.6;
 }
 .strip-label {
-  color: var(--c-on-pastel);
-  font-size: 12px;
-  line-height: 16px;
-  opacity: 0.7;
+  color: var(--c-text-2);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  letter-spacing: var(--ls-footnote);
 }
 .strip-value {
-  color: var(--c-on-pastel);
-  font-size: 22px;
-  line-height: 28px;
+  color: var(--c-text);
+  font-size: var(--fs-title-2);
+  line-height: var(--lh-title-2);
+  letter-spacing: var(--ls-title-2);
   font-weight: 600;
 }
 .strip-value.text-warning {
   color: var(--c-warning-text);
 }
 .strip-total {
-  font-size: 13px;
+  margin-left: 2px;
+  color: var(--c-text-3);
+  font-size: var(--fs-footnote);
   font-weight: 400;
-  opacity: 0.6;
-}
-
-.attention-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 16px;
-  padding-top: 12px;
-  border-top: 0.5px solid var(--c-line);
 }
 
 .chart-note {
@@ -73,25 +65,27 @@
   justify-content: space-between;
   gap: 12px;
   margin: 8px 0 2px;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
+/* 进度条：iOS Progress View，4px 胶囊，填充用强调色 */
 .memory-meter {
-  height: 5px;
+  height: 4px;
   margin: 6px 0 4px;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--radius-full);
   background: var(--c-fill-2);
 }
 .memory-meter view {
   height: 100%;
   border-radius: inherit;
-  background: #3488ff;
+  background: var(--c-accent);
 }
 .memory-note {
   color: var(--c-text-3);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
 }
 .memory-process {
   margin-top: 8px;
@@ -105,18 +99,15 @@
   flex-wrap: wrap;
   gap: 6px;
   row-gap: 4px;
-  margin: 10px 0 4px;
+  margin: 12px 0 4px;
   color: var(--c-text-2);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--fs-caption-1);
+  line-height: var(--lh-caption-1);
 }
 .chart-label:first-child {
   margin-top: 0;
 }
 
-.instance-detail {
-  padding: 4px 8px;
-}
 .detail-link {
-  margin-top: 10px;
+  margin-top: 12px;
 }

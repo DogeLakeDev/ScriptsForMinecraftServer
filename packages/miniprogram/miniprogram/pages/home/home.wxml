@@ -14,19 +14,99 @@
     </view>
   </view>
 
-  <view class="surface">
-    <empty-state icon="globe" title="服务器状态与加入方式" desc="功能设计中，敬请期待" />
-  </view>
-
-  <view class="surface">
-    <view class="surface-list">
-      <view class="list-item" hover-class="hover" bindtap="openMe">
-        <view class="tile tile-blue"><text class="i i-user"></text></view>
-        <view class="list-main">
-          <view class="list-title"><text class="truncate">绑定游戏账号</text></view>
-        </view>
-        <text class="i i-sm i-chevron-right muted"></text>
-      </view>
+  <view wx:elif="{{error}}" class="callout tone-danger">
+    <text class="i i-alert"></text>
+    <view class="callout-body">
+      <view class="callout-title">无法读取服务器状态</view>
+      <view class="callout-text">{{error}}</view>
+      <view class="link home-retry" bindtap="load">重试</view>
     </view>
   </view>
+
+  <block wx:elif="{{configured}}">
+    <!-- 运行状态 -->
+    <view class="surface">
+      <view class="surface-body home-status">
+        <view class="row">
+          <text class="badge {{running ? 'tone-success' : 'tone-danger'}}">
+            <text class="dot {{running ? 'tone-success' : 'tone-danger'}}"></text>{{running ? '运行中' : '已停止'}}
+          </text>
+          <view class="spacer"></view>
+          <text wx:if="{{version}}" class="small muted">{{version}}</text>
+        </view>
+        <view class="home-stats">
+          <view class="stat">
+            <text class="small muted">在线</text>
+            <text class="stat-value num">{{loading ? '…' : onlineCount}}</text>
+          </view>
+          <view class="stat">
+            <text class="small muted">TPS</text>
+            <text class="stat-value num">{{loading ? '…' : tpsText}}</text>
+          </view>
+          <view class="stat">
+            <text class="small muted">运行时长</text>
+            <text class="stat-value home-uptime">{{loading ? '…' : uptimeText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 加入地址：仅非空时展示（已绑定且网关配置了地址） -->
+    <view wx:if="{{joinAddress}}" class="surface">
+      <view class="surface-list">
+        <view class="list-item" hover-class="hover" bindtap="copyJoinAddress">
+          <view class="tile tile-teal"><text class="i i-globe"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">加入地址</text></view>
+            <view class="list-sub mono truncate">{{joinAddress}}</view>
+          </view>
+          <text class="link">复制</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 在线玩家头像条 → 地图 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">在线玩家</text>
+        <text wx:if="{{!loading}}" class="badge">{{onlineCount}} 人</text>
+      </view>
+      <view class="surface" hover-class="hover" bindtap="openMap">
+        <scroll-view wx:if="{{onlinePlayers.length}}" class="home-online" scroll-x enable-flex>
+          <view wx:for="{{onlinePlayers}}" wx:key="name" class="home-online-chip">
+            <text class="avatar" style="background: hsl({{item.hue}}, 55%, 62%)">{{item.initial}}</text>
+            <text class="small truncate">{{item.name}}</text>
+          </view>
+        </scroll-view>
+        <view wx:else class="surface-body">
+          <text class="small muted">{{loading ? '读取中…' : '当前没有玩家在线'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 入服公告 -->
+    <view wx:if="{{noticeOn}}" class="section">
+      <view class="section-header"><text class="section-title">公告</text></view>
+      <view class="surface">
+        <view class="surface-body">
+          <view class="b">{{noticeTitle}}</view>
+          <view class="home-notice-body">{{noticeContent}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 绑定快捷入口 -->
+    <view class="surface">
+      <view class="surface-list">
+        <view class="list-item" hover-class="hover" bindtap="openMe">
+          <view class="tile {{bound ? 'tile-blue' : 'tile-neutral'}}"><text class="i i-user"></text></view>
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">{{bound ? '我的账号' : '绑定游戏账号'}}</text></view>
+            <view class="list-sub">{{bound ? '查看余额、领地与交易记录' : '绑定后可查看加入地址与个人数据'}}</view>
+          </view>
+          <text class="i i-sm i-chevron-right muted"></text>
+        </view>
+      </view>
+    </view>
+  </block>
 </view>

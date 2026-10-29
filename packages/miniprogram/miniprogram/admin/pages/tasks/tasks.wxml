@@ -24,7 +24,7 @@
             <view class="list-sub">{{item.phase}} · <text class="mono">{{item.elapsed}}</text></view>
           </view>
           <!-- 状态由左侧图标表达，右侧只留时间 -->
-          <view class="task-end">
+          <view class="list-end-stack">
             <text class="small muted">{{item.time}}</text>
           </view>
         </view>

@@ -5,9 +5,11 @@
   display: block;
   width: 100%;
 }
+/* 点按读数：iOS Caption 1，数字等宽，便于左右滑动时对比 */
 .readout {
   margin-top: 4px;
   color: var(--c-text-2);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--fs-caption-1);
+  line-height: var(--lh-caption-1);
+  font-variant-numeric: tabular-nums;
 }

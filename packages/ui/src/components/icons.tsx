@@ -97,6 +97,8 @@ import IconListCheck from "@tabler/icons-react/dist/esm/icons/IconListCheck.mjs"
 import IconListCheckFilled from "@tabler/icons-react/dist/esm/icons/IconListCheckFilled.mjs";
 import IconListFilled from "@tabler/icons-react/dist/esm/icons/IconListFilled.mjs";
 import IconLoader2 from "@tabler/icons-react/dist/esm/icons/IconLoader2.mjs";
+import IconLocation from "@tabler/icons-react/dist/esm/icons/IconLocation.mjs";
+import IconLocationFilled from "@tabler/icons-react/dist/esm/icons/IconLocationFilled.mjs";
 import IconLock from "@tabler/icons-react/dist/esm/icons/IconLock.mjs";
 import IconLockFilled from "@tabler/icons-react/dist/esm/icons/IconLockFilled.mjs";
 import IconMessageCircle from "@tabler/icons-react/dist/esm/icons/IconMessageCircle.mjs";
@@ -294,6 +296,7 @@ const ICONS = {
   code: [IconCode],
   list: [IconList, IconListFilled],
   layers: [IconStack2, IconStack2Filled],
+  location: [IconLocation, IconLocationFilled],
   lock: [IconLock, IconLockFilled],
   eye: [IconEye, IconEyeFilled],
   filter: [IconFilter, IconFilterFilled],

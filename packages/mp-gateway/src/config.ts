@@ -49,6 +49,16 @@ export interface GatewayConfig {
    * null 表示服务器未开启地图：实例没有 configs/bluemap.json 且未指定 --map-url，所有 …/map/* 回 503。
    */
   mapUrl: string | null;
+  /**
+   * 网关启动时要保证运行的实例服务（service-guard.ts），按启动顺序排列。
+   * 默认只有 db：玩家登录与管理鉴权都依赖 db-server。空数组表示不检查。
+   */
+  startServices: string[];
+  /**
+   * 首页「加入服务器」展示的地址（host 或 host:port）；空串表示不展示。
+   * 使用场景：/server/status 仅在玩家已绑定游戏账号时附带此字段。
+   */
+  joinAddress: string;
 }
 
 /** 微信小程序登录配置。使用场景：wechat.ts 调用 code2session。 */
@@ -75,6 +85,11 @@ export const HELP_TEXT = `用法: sfmc-mp-gateway --root <实例目录> [选项]
   --db-url <url>        本机 db-server 地址（SFMC_MP_DB_URL），默认读取 configs/db_config.json 的 db_port
   --map-url <url>       本机 bluemap 地图服务地址（SFMC_MP_MAP_URL），默认读取 configs/bluemap.json 的 port；
                         该文件不存在时视为未开启地图
+  --start-services <names>
+                        网关启动时确保运行的实例服务，逗号分隔，默认 db（SFMC_MP_START_SERVICES）；
+                        none 表示不检查
+  --join-address <addr> 首页展示的加入地址，如 play.example.cn:19132（SFMC_MP_JOIN_ADDRESS）；
+                        仅已绑定玩家可见；不配置则不显示
   -h, --help            显示帮助
 `;
 
@@ -184,6 +199,19 @@ export function resolveMapUrl(root: string): string | null {
   return `http://127.0.0.1:${Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_MAP_PORT}`;
 }
 
+/** 网关默认依赖的实例服务：登录与管理鉴权都要查 db-server */
+const DEFAULT_START_SERVICES = "db";
+
+/**
+ * 解析 --start-services 的值：逗号分隔、去空白与重复；none 表示不检查。
+ * 服务名是否存在由守卫对照 services.list 判定，这里不重复维护服务清单。
+ */
+export function parseStartServices(value: string): string[] {
+  const trimmed = value.trim();
+  if (trimmed.toLowerCase() === "none") return [];
+  return [...new Set(trimmed.split(",").map((name) => name.trim()).filter(Boolean))];
+}
+
 /**
  * 解析命令行与环境变量。
  * 返回 null 表示用户只请求了帮助；参数不合法时抛出错误，由 main.ts 打印后退出。
@@ -204,6 +232,8 @@ export function parseGatewayConfig(argv: string[], env: NodeJS.ProcessEnv): Gate
       "wx-appid": { type: "string" },
       "db-url": { type: "string" },
       "map-url": { type: "string" },
+      "start-services": { type: "string" },
+      "join-address": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     strict: true,
@@ -259,5 +289,7 @@ export function parseGatewayConfig(argv: string[], env: NodeJS.ProcessEnv): Gate
     dbUrl,
     devicesFile: path.join(root, ".sfmc", "mp-gateway-devices.json"),
     mapUrl,
+    startServices: parseStartServices(values["start-services"] ?? env.SFMC_MP_START_SERVICES ?? DEFAULT_START_SERVICES),
+    joinAddress: (values["join-address"] ?? env.SFMC_MP_JOIN_ADDRESS ?? "").trim(),
   };
 }

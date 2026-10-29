@@ -7,9 +7,10 @@
  * 业务语义（维护锁、任务、权限校验）全部由 CLI 管理通道负责，网关不重复实现。
  * 连接断开只结束管理通道，与桌面端一样不会停止守护进程或服务器。
  */
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { decodeFrame, managementError, type ManagementError, type ManagementRequest, type ManagementResponse } from "@sfmc-bds/management";
 import type { RawData, WebSocket } from "ws";
+import { EXIT_GRACE_MS, spawnManageProcess } from "./cli-process.js";
 import type { GatewayConfig } from "./config.js";
 import { GATEWAY_METHODS } from "./methods.js";
 
@@ -17,9 +18,6 @@ import { GATEWAY_METHODS } from "./methods.js";
 const STDOUT_BUFFER_LIMIT = 8 * 1024 * 1024;
 /** 客户端发送队列超过该字节数时视为接收过慢（通常是移动网络卡住），断开以免内存堆积 */
 const SEND_BUFFER_LIMIT = 16 * 1024 * 1024;
-/** 关闭 stdin 后等待子进程自行退出的时间 */
-const EXIT_GRACE_MS = 5_000;
-
 /** 单条管理会话的桥接器 */
 export class ManagementBridge {
   private child?: ChildProcessWithoutNullStreams;
@@ -37,13 +35,7 @@ export class ManagementBridge {
 
   /** 启动 CLI 管理通道并开始转发 */
   start(): void {
-    const { node, entry, root } = this.config;
-    const child = spawn(node, [entry, "manage", "--stdio"], {
-      cwd: root,
-      env: { ...process.env, SFMC_ROOT: root, SFMC_NODE_BINARY: node, SFMC_DAEMON_ENTRY: entry },
-      windowsHide: true,
-      stdio: "pipe",
-    });
+    const child = spawnManageProcess(this.config);
     this.child = child;
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => this.onChildOutput(chunk));

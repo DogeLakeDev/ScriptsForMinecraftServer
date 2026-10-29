@@ -1,0 +1,153 @@
+/**
+ * sheet.wxs — map-sheet 的上下拖动手势（运行在渲染层，拖动时不经过 setData）
+ *
+ * 使用场景：components/map-sheet 的头部（把手 + 头部插槽）绑定 start / move / end，面板高度跟手变化；
+ * 松手时按手指速度预估落点，吸附到最近的一档高度（收起 / 中档 / 全屏），并通知组件逻辑层（onSettle）。
+ * 各档高度由组件测量后经 layout 属性传入，格式为 "收起,中档,全屏,当前档序号"（像素取整），
+ * 页面改变档位时组件重新生成 layout，这里按新的当前档动画过去。
+ * 面板上方的控件（accessory 插槽）也在这里随面板高度移动与淡出，见 placeAccessory。
+ */
+
+/** 方向判定前允许的抖动距离（px），超过后才开始跟手，避免点按头部里的控件时面板抖一下 */
+var DRAG_SLOP = 6;
+/** 拉过最低 / 最高档后的阻尼系数，模仿 iOS 面板越界回弹的手感 */
+var OVERDRAG_RATIO = 0.3;
+/** 松手时按速度外推的时长（ms）：快速甩动时落点更远，能直接越过中档 */
+var FLING_PROJECT_MS = 160;
+/** 吸附动画，与 swipe-row 及开关的缓动曲线一致 */
+var SETTLE_TRANSITION = "height 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+/** 面板上方控件（accessory 插槽）与面板顶边的间距（px），与面板距屏幕边缘的留白一致 */
+var ACCESSORY_GAP = 8;
+/** 面板从中档往全屏拉，拉过两档之间的这个比例时控件完全淡出（Apple 地图面板拉高后右下角按钮消失） */
+var ACCESSORY_FADE_RATIO = 0.5;
+/** 控件随面板吸附的动画：位移与面板高度同一曲线，淡入淡出稍快 */
+var ACCESSORY_TRANSITION = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s";
+
+/** 解析 layout 字符串；格式不对时返回 null（组件尚未测量） */
+function parseLayout(layout) {
+  if (!layout) return null;
+  var parts = layout.split(",");
+  if (parts.length !== 4) return null;
+  var heights = [parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])];
+  var index = parseInt(parts[3]);
+  if (isNaN(heights[0]) || isNaN(heights[1]) || isNaN(heights[2]) || isNaN(index)) return null;
+  return { heights: heights, index: index };
+}
+
+/** 面板高度为 height 时控件的不透明度：中档及以下为 1，往全屏拉时线性淡出 */
+function accessoryOpacity(heights, height) {
+  var medium = heights[1];
+  var range = (heights[2] - medium) * ACCESSORY_FADE_RATIO;
+  if (range <= 0) return height > medium ? 0 : 1;
+  var opacity = 1 - (height - medium) / range;
+  return opacity < 0 ? 0 : opacity > 1 ? 1 : opacity;
+}
+
+/**
+ * 把面板上方的控件移到面板顶边上方 ACCESSORY_GAP 处，并按高度淡出；淡出过半后不接收触摸。
+ * 使用场景：place 每次设置面板高度时同步调用，拖动中跟手、吸附时与面板同一动画（逻辑层在拖动中拿不到面板高度，所以放在渲染层做）。
+ */
+function placeAccessory(ownerInstance, heights, height, animate) {
+  var accessory = ownerInstance.selectComponent(".map-sheet-accessory");
+  if (!accessory || !heights) return;
+  var opacity = accessoryOpacity(heights, height);
+  accessory.setStyle({
+    transform: "translateY(" + -(height + ACCESSORY_GAP) + "px)",
+    opacity: opacity + "",
+    "pointer-events": opacity > 0.5 ? "auto" : "none",
+    transition: animate ? ACCESSORY_TRANSITION : "none"
+  });
+}
+
+/** 设置面板高度（并同步面板上方的控件）；animate 为 true 时带吸附动画 */
+function place(ownerInstance, instance, state, height, animate) {
+  state.height = height;
+  instance.setStyle({
+    height: height + "px",
+    transition: animate ? SETTLE_TRANSITION : "none"
+  });
+  placeAccessory(ownerInstance, state.heights, height, animate);
+}
+
+/** 组件测量后或页面改变档位时（layout 变化）：记录各档高度并移到当前档 */
+function setLayout(layout, oldLayout, ownerInstance, instance) {
+  var parsed = parseLayout(layout);
+  if (!parsed) return;
+  var state = instance.getState();
+  var first = state.heights === undefined;
+  state.heights = parsed.heights;
+  state.index = parsed.index;
+  // 首次布局不做动画，避免进入页面时面板从 0 长出来
+  place(ownerInstance, instance, state, parsed.heights[parsed.index], !first);
+}
+
+/** 取面板节点（手势绑定在头部上，高度设置在面板上） */
+function sheetOf(ownerInstance) {
+  return ownerInstance.selectComponent(".map-sheet");
+}
+
+function start(event, ownerInstance) {
+  var sheet = sheetOf(ownerInstance);
+  if (!sheet) return;
+  var state = sheet.getState();
+  if (!state.heights) return;
+  var touch = event.touches[0];
+  state.startY = touch.pageY;
+  state.base = state.height;
+  state.dragging = false;
+  state.lastY = touch.pageY;
+  state.lastAt = event.timeStamp;
+  state.velocity = 0;
+}
+
+function move(event, ownerInstance) {
+  var sheet = sheetOf(ownerInstance);
+  if (!sheet) return;
+  var state = sheet.getState();
+  if (!state.heights || state.startY === undefined) return;
+  var touch = event.touches[0];
+  var dy = touch.pageY - state.startY;
+  if (!state.dragging) {
+    if (Math.abs(dy) < DRAG_SLOP) return;
+    state.dragging = true;
+  }
+  var min = state.heights[0];
+  var max = state.heights[2];
+  var next = state.base - dy;
+  if (next < min) next = min - (min - next) * OVERDRAG_RATIO;
+  if (next > max) next = max + (next - max) * OVERDRAG_RATIO;
+  // 速度：向下为正（px/ms），只看最近一次移动，松手时用来外推落点
+  var dt = event.timeStamp - state.lastAt;
+  if (dt > 0) state.velocity = (touch.pageY - state.lastY) / dt;
+  state.lastY = touch.pageY;
+  state.lastAt = event.timeStamp;
+  place(ownerInstance, sheet, state, next, false);
+  return false;
+}
+
+function end(event, ownerInstance) {
+  var sheet = sheetOf(ownerInstance);
+  if (!sheet) return;
+  var state = sheet.getState();
+  if (!state.heights || !state.dragging) {
+    state.startY = undefined;
+    return;
+  }
+  state.dragging = false;
+  state.startY = undefined;
+  var projected = state.height - state.velocity * FLING_PROJECT_MS;
+  var best = 0;
+  for (var i = 1; i < state.heights.length; i++) {
+    if (Math.abs(state.heights[i] - projected) < Math.abs(state.heights[best] - projected)) best = i;
+  }
+  state.index = best;
+  place(ownerInstance, sheet, state, state.heights[best], true);
+  ownerInstance.callMethod("onSettle", { index: best });
+}
+
+module.exports = {
+  setLayout: setLayout,
+  start: start,
+  move: move,
+  end: end
+};

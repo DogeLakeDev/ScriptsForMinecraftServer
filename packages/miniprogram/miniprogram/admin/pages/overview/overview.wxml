@@ -33,18 +33,17 @@
     </view>
 
     <!-- 服务 -->
-    <view class="surface">
-      <view class="surface-head">
-        <text class="surface-title">服务</text>
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">服务</text>
         <view class="btn btn-sm {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="startAll">
-          <text class="i i-sm i-play"></text>
           <text>启动全部</text>
         </view>
-        <view class="btn btn-sm btn-icon {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="moreActions">
+        <view class="btn btn-sm btn-icon btn-circle {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="moreActions">
           <text class="i i-sm i-more"></text>
         </view>
       </view>
-      <view class="surface-list">
+      <view class="surface surface-list">
         <view
           wx:for="{{services}}"
           wx:key="name"
@@ -67,13 +66,13 @@
       </view>
     </view>
 
-    <!-- 需要关注：告警 + 任务 -->
-    <view class="surface">
-      <view class="surface-head">
-        <text class="surface-title">需要关注</text>
+    <!-- 需要关注：告警 -->
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">需要关注</text>
         <text class="link" bindtap="openConsole">查看日志</text>
       </view>
-      <view class="surface-list">
+      <view class="surface surface-list">
         <view
           wx:for="{{alerts}}"
           wx:key="key"
@@ -93,17 +92,21 @@
         </view>
         <empty-state wx:if="{{!alerts.length}}" icon="bell" title="暂无告警" desc="已加载日志中没有警告或错误" compact />
       </view>
-      <view class="attention-head">
-        <view class="row small">
+    </view>
+
+    <!-- 任务：进行中时标题显示数量与脉动点 -->
+    <view class="section">
+      <view class="section-header">
+        <view class="section-title row">
           <block wx:if="{{activeCount > 0}}">
             <text class="dot tone-info pulse"></text>
             <text>{{activeCount}} 个任务正在进行</text>
           </block>
-          <text wx:else class="muted">最近任务</text>
+          <text wx:else>最近任务</text>
         </view>
         <text class="link" bindtap="openTasks">全部任务</text>
       </view>
-      <view class="surface-list">
+      <view class="surface surface-list">
         <view wx:for="{{tasks}}" wx:key="id" class="feed-item" hover-class="hover" bindtap="openTasks">
           <view class="tile tile-sm tile-{{item.tone}}">
             <text class="i i-sm i-{{item.icon}} {{item.spin ? 'spin' : ''}}"></text>
@@ -121,11 +124,11 @@
     </view>
 
     <!-- 运行趋势 -->
-    <view class="surface">
-      <view class="surface-head">
-        <text class="surface-title">运行趋势</text>
+    <view class="section">
+      <view class="section-header">
+        <text class="section-title">运行趋势</text>
       </view>
-      <view class="surface-body">
+      <view class="surface surface-body">
         <view wx:if="{{metricsNote}}" class="small muted chart-note">{{metricsNote}}</view>
         <block wx:if="{{metricsSupported}}">
           <view class="segmented chart-span">
@@ -133,9 +136,9 @@
             <view class="segmented-item {{span === '60' ? 'active' : ''}}" data-value="60" bindtap="setSpan">1 小时</view>
             <view class="segmented-item {{span === '1440' ? 'active' : ''}}" data-value="1440" bindtap="setSpan">一天</view>
           </view>
-          <view class="chart-label"><text class="dot" style="background:#7dbbff"></text><text>TPS</text></view>
+          <view class="chart-label"><text class="dot" style="background: var({{charts.tpsColor}})"></text><text>TPS</text></view>
           <line-chart series="{{charts.tps}}" min="{{0}}" max="{{20}}" unit="tps" begin="{{charts.begin}}" end="{{charts.end}}" />
-          <view class="chart-label"><text class="dot" style="background:#71dd8c"></text><text>在线玩家</text></view>
+          <view class="chart-label"><text class="dot" style="background: var({{charts.playersColor}})"></text><text>在线玩家</text></view>
           <line-chart series="{{charts.players}}" unit="count" begin="{{charts.begin}}" end="{{charts.end}}" />
           <view wx:if="{{memoryPanel.show}}" class="memory-panel">
             <view class="memory-row">
@@ -174,7 +177,7 @@
           <block wx:if="{{charts.cpu.length}}">
             <view class="chart-label">
               <block wx:for="{{charts.cpu}}" wx:key="name">
-                <text class="dot" style="background:{{item.color}}"></text><text>{{item.name}}</text>
+                <text class="dot" style="background: var({{item.color}})"></text><text>{{item.name}}</text>
               </block>
             </view>
             <line-chart series="{{charts.cpu}}" min="{{0}}" unit="percent" begin="{{charts.begin}}" end="{{charts.end}}" />
@@ -182,7 +185,7 @@
           <block wx:if="{{charts.memory.length}}">
             <view class="chart-label">
               <block wx:for="{{charts.memory}}" wx:key="name">
-                <text class="dot" style="background:{{item.color}}"></text><text>{{item.name}}</text>
+                <text class="dot" style="background: var({{item.color}})"></text><text>{{item.name}}</text>
               </block>
             </view>
             <line-chart series="{{charts.memory}}" min="{{0}}" max="{{charts.memoryMax}}" unit="memory" begin="{{charts.begin}}" end="{{charts.end}}" />
@@ -190,7 +193,7 @@
           <block wx:if="{{charts.entities.length}}">
             <view class="chart-label">
               <block wx:for="{{charts.entities}}" wx:key="name">
-                <text class="dot" style="background:{{item.color}}"></text><text>{{item.name}}</text>
+                <text class="dot" style="background: var({{item.color}})"></text><text>{{item.name}}</text>
               </block>
             </view>
             <line-chart series="{{charts.entities}}" unit="count" begin="{{charts.begin}}" end="{{charts.end}}" />
@@ -200,7 +203,7 @@
     </view>
 
     <!-- 实例详情 -->
-    <view wx:if="{{detail}}" class="instance-detail">
+    <view wx:if="{{detail}}" class="surface surface-body">
       <view class="kv">
         <text class="kv-key">部署目录</text>
         <text class="kv-value mono" bindlongpress="copyRoot">{{root}}</text>

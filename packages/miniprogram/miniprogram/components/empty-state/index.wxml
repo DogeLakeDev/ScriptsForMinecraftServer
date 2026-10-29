@@ -1,6 +1,6 @@
 <!-- 空状态：图标 + 标题 + 可选说明，操作按钮通过默认插槽传入 -->
 <view class="empty {{compact ? 'compact' : ''}}">
-  <view class="tile tile-neutral"><text class="i i-{{icon}}"></text></view>
+  <view class="tile {{compact ? '' : 'tile-lg'}} tile-neutral"><text class="i i-{{icon}}"></text></view>
   <view class="empty-title">{{title}}</view>
   <view wx:if="{{desc}}" class="empty-desc">{{desc}}</view>
   <slot></slot>

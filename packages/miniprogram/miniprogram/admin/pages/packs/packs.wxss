@@ -7,11 +7,12 @@
 .search-fill {
   background: var(--c-fill);
 }
+/* 世界包自带的图标：与 Symbol Tile 同尺寸、同圆角，保证分隔线对齐 */
 .pack-icon {
   flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   image-rendering: pixelated;
 }
 .pack-meta {

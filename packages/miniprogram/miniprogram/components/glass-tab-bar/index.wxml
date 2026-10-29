@@ -1,0 +1,19 @@
+<!-- iOS 27 悬浮玻璃标签栏：固定在屏幕底部的玻璃胶囊，选中项有浅灰底块 + 强调色图标与文字 -->
+<!-- docked：放进页面 .dock 容器；Figma 中 2 项时胶囊按内容收紧（tab-bar-hug），3 项及以上撑满到右侧圆形按钮 -->
+<view class="tab-bar glass {{docked ? 'tab-bar-docked' : ''}} {{docked && tabs.length <= 2 ? 'tab-bar-hug' : ''}}" aria-role="tablist">
+  <view
+    wx:for="{{tabs}}"
+    wx:key="key"
+    class="tab-bar-item {{item.key === current ? 'active' : ''}}"
+    aria-role="tab"
+    aria-selected="{{item.key === current}}"
+    data-key="{{item.key}}"
+    bindtap="onTap"
+  >
+    <view class="tab-bar-icon">
+      <text class="i i-{{item.key === current && item.activeIcon ? item.activeIcon : item.icon}}"></text>
+      <text wx:if="{{item.badge}}" class="tab-bar-badge num">{{item.badge}}</text>
+    </view>
+    <text class="tab-bar-text">{{item.text}}</text>
+  </view>
+</view>

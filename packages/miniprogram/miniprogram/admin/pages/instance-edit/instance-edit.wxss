@@ -1,6 +1,4 @@
+/* .flex1 见 styles/base.wxss */
 .actions {
   margin-top: 8px;
-}
-.flex1 {
-  flex: 1;
 }

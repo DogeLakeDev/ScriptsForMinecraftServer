@@ -5,6 +5,7 @@
  * 安装前核对 requires：未安装或未启用时不提交任务，只在详情里说明（同桌面端 ModulesPage / ModuleDetailSheet）。
  * 安装、启用、停用、卸载都不重启服务，由「重启 BDS」按钮手动重启。
  */
+import type { GlassTab } from "../../../components/glass-tab-bar/index";
 import { guard, restartBlockReason, restartServices, submit } from "../../../core/actions";
 import { errorText } from "../../../core/format";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
@@ -34,6 +35,12 @@ const DEPENDENCY_STATUS: Record<string, { label: string; tone: string }> = {
   disabled: { label: "已安装但未启用", tone: "warning" },
   missing: { label: "尚未安装", tone: "danger" },
 };
+
+/** 底部悬浮栏的分类（glass-tab-bar docked），key 与 view.tab 的取值一致 */
+const MODULE_TABS: GlassTab[] = [
+  { key: "installed", text: "已安装", icon: "list" },
+  { key: "discover", text: "可安装", icon: "download" },
+];
 
 /** 展示名：没有单独名称时用 id */
 const moduleTitle = (row: { id: string; name?: string }) => (row.name && row.name !== row.id ? row.name : row.id);
@@ -120,6 +127,7 @@ function render(state: SessionState) {
     editable,
     restartReason: restartBlockReason("bds"),
     manualRestart: session.can("manual-restart"),
+    dockTabs: MODULE_TABS,
     tab: view.tab,
     query: view.query,
     status: view.status,
@@ -157,7 +165,15 @@ Page({
   },
 
   setTab(event: WechatMiniprogram.TouchEvent) {
-    view.tab = event.currentTarget.dataset.value as typeof view.tab;
+    this.applyTab(event.currentTarget.dataset.value as typeof view.tab);
+  },
+  /** 底部悬浮栏 glass-tab-bar 的 select 事件 */
+  selectTab(event: WechatMiniprogram.CustomEvent<{ key: string }>) {
+    this.applyTab(event.detail.key as typeof view.tab);
+  },
+  /** 切换「已安装 / 可安装」；首次进入「可安装」时读取模块索引 */
+  applyTab(tab: typeof view.tab) {
+    view.tab = tab;
     this.rerender();
     if (view.tab === "discover" && view.results === null && !view.loading) void this.searchRegistry("");
   },

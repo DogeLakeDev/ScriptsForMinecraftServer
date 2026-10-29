@@ -6,13 +6,24 @@
  * 未提供 times 时仍按点序号等距（兼容只传 values 的旧调用）。
  * min / max 都为 0 时纵轴按数据自适应，且底边不低于 0；否则使用给定范围（含 min 为 0）。
  * 右轴（axis 为 1）始终按自身数据自适应，避免和左轴的固定范围挤在一起。
- * 点按或滑动时在图上钉一条竖线，并在图下读出该时刻的数值。
+ * 点按或滑动时在图上钉一条竖线（吸附到最近的采样时刻并标出各曲线的点），并在图下读出该时刻的数值。
+ * 外观按 iOS Swift Charts：实线网格、2px 折线、二级文字色的坐标轴；颜色全部取自色板（core/palette.ts），随深浅色切换重绘。
  */
 import { formatMemoryMb, pad } from "../../core/format";
+import { currentTheme, paletteColor, resolveColor, type ThemeName } from "../../core/palette";
+
+/** 坐标轴文字：iOS Caption 2（11px），canvas 读不到 CSS 变量，字体栈与 tokens.wxss 的 --font-sans 相同 */
+const AXIS_FONT = '11px -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif';
+/** 折线宽度：Swift Charts LineMark 的默认线宽 */
+const LINE_WIDTH = 2;
+/** 游标处的数据点标记半径与描边宽度（描边取卡片底色，让点从折线上分离出来） */
+const MARKER_RADIUS = 4;
+const MARKER_STROKE = 2;
 
 /** 一条曲线 */
 interface Series {
   name?: string;
+  /** 颜色值，或色板变量名（如 "--chart-3"，按当前主题解析） */
   color: string;
   /** 0 左轴，1 右轴 */
   axis?: 0 | 1;
@@ -57,6 +68,8 @@ interface ChartRuntime {
   cursor: number | null;
   /** 丢弃已经过期的画布查询，避免慢返回覆盖新的一帧 */
   ticket: number;
+  /** 系统深浅色切换时的重绘回调（attached 时注册、detached 时注销） */
+  onTheme: (() => void) | null;
 }
 
 const runtimes = new WeakMap<object, ChartRuntime>();
@@ -64,7 +77,7 @@ const runtimes = new WeakMap<object, ChartRuntime>();
 function runtimeOf(host: object): ChartRuntime {
   let runtime = runtimes.get(host);
   if (!runtime) {
-    runtime = { plot: null, cursor: null, ticket: 0 };
+    runtime = { plot: null, cursor: null, ticket: 0, onTheme: null };
     runtimes.set(host, runtime);
   }
   return runtime;
@@ -186,6 +199,47 @@ function neighborGap(points: Plotted[]): number {
   return step === undefined ? Infinity : Math.max(step * 1.5, 1);
 }
 
+/** 游标吸附结果：吸附后的时刻，以及每条曲线在该时刻的点（离得太远为 null） */
+interface CursorHit {
+  time: number;
+  rows: { name: string; color: string; point: Plotted | null }[];
+}
+
+/**
+ * 把游标吸附到所有曲线中最近的有效采样时刻，再取每条曲线离该时刻最近的点。
+ * 离得超过该曲线自身间隔（neighborGap）就记为 null，避免把断线两侧连成一个读数。
+ * 使用场景：paint 画竖线与数据点标记、readoutAt 生成读数，两处共用同一套吸附规则。
+ */
+function nearestAt(plot: Plot, cursor: number): CursorHit {
+  let snapped = cursor;
+  let best = Infinity;
+  for (const row of plot.rows) {
+    for (const point of row.points) {
+      if (point.value === null) continue;
+      const distance = Math.abs(point.t - cursor);
+      if (distance < best) {
+        best = distance;
+        snapped = point.t;
+      }
+    }
+  }
+  const rows = plot.rows.map((row) => {
+    let nearest: Plotted | null = null;
+    let distance = Infinity;
+    for (const point of row.points) {
+      if (point.value === null) continue;
+      const gap = Math.abs(point.t - snapped);
+      if (gap < distance) {
+        distance = gap;
+        nearest = point;
+      }
+    }
+    const point = nearest && nearest.value !== null && distance <= neighborGap(row.points) ? nearest : null;
+    return { name: row.name, color: row.color, point };
+  });
+  return { time: snapped, rows };
+}
+
 Component({
   properties: {
     series: { type: Array, value: [] as Series[] },
@@ -208,10 +262,18 @@ Component({
     },
   },
   lifetimes: {
+    attached() {
+      // canvas 不跟随 CSS 变量变色，系统切换深浅色时按新主题重绘
+      const runtime = runtimeOf(this);
+      runtime.onTheme = () => this.draw();
+      wx.onThemeChange(runtime.onTheme);
+    },
     ready() {
       this.draw();
     },
     detached() {
+      const runtime = runtimes.get(this);
+      if (runtime?.onTheme) wx.offThemeChange(runtime.onTheme);
       runtimes.delete(this);
     },
   },
@@ -311,12 +373,13 @@ Component({
 
     paint(context: Context2D, plot: Plot, cursor: number | null) {
       const unit = String(this.data.unit || "");
-      const dark = wx.getAppBaseInfo().theme === "dark";
-      const label = dark ? "rgba(226,226,226,0.55)" : "rgba(28,28,28,0.45)";
-      const grid = dark ? "rgba(226,226,226,0.1)" : "rgba(28,28,28,0.08)";
+      const theme: ThemeName = currentTheme();
+      // 坐标轴文字用二级文字色、网格用分隔线色（iOS Labels/Secondary、Separators/Non-opaque）
+      const label = paletteColor("--c-text-3", theme);
+      const grid = paletteColor("--c-line", theme);
       const plotBottom = plot.height - plot.padB;
       const yOf = (value: number, scale: Scale) => plotBottom - ((value - scale.low) / (scale.high - scale.low)) * (plotBottom - plot.padT);
-      context.font = "10px sans-serif";
+      context.font = AXIS_FONT;
       context.fillStyle = label;
       context.textBaseline = "middle";
       this.paintAxisLabels(context, plot, plot.left, unit, yOf, "left", label, grid);
@@ -334,9 +397,10 @@ Component({
         context.fillText(axisClock(plot.begin + (plot.end - plot.begin) / 2, withDate), (plot.padL + plot.width - plot.padR) / 2, plot.height - 1);
       }
       for (const row of plot.rows) {
-        context.strokeStyle = row.color;
-        context.fillStyle = row.color;
-        context.lineWidth = 1.5;
+        const color = resolveColor(row.color, theme);
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.lineWidth = LINE_WIDTH;
         context.lineJoin = "round";
         context.lineCap = "round";
         context.beginPath();
@@ -362,14 +426,26 @@ Component({
         });
       }
       if (cursor !== null && cursor >= plot.begin && cursor <= plot.end) {
-        const x = plot.padL + ((cursor - plot.begin) / (plot.end - plot.begin)) * (plot.width - plot.padL - plot.padR);
-        context.strokeStyle = dark ? "rgba(226,226,226,0.45)" : "rgba(28,28,28,0.35)";
+        // 竖线吸附到最近的采样时刻，与下方读数的时间一致；各曲线在该时刻的点画成带描边的圆点（Swift Charts 的选中样式）
+        const hit = nearestAt(plot, cursor);
+        const x = plot.padL + ((hit.time - plot.begin) / (plot.end - plot.begin)) * (plot.width - plot.padL - plot.padR);
+        context.strokeStyle = paletteColor("--c-text-4", theme);
         context.lineWidth = 1;
         context.setLineDash([]);
         context.beginPath();
         context.moveTo(x, plot.padT);
         context.lineTo(x, plotBottom);
         context.stroke();
+        context.strokeStyle = paletteColor("--c-block", theme);
+        context.lineWidth = MARKER_STROKE;
+        for (const row of hit.rows) {
+          if (!row.point) continue;
+          context.fillStyle = resolveColor(row.color, theme);
+          context.beginPath();
+          context.arc(row.point.x, row.point.y, MARKER_RADIUS, 0, Math.PI * 2);
+          context.stroke();
+          context.fill();
+        }
       }
       this.setReadout(this.readoutAt(plot, cursor, unit, withDate));
     },
@@ -392,7 +468,8 @@ Component({
       for (const tick of tickValues(scale.low, scale.high, unit)) {
         const y = yOf(tick, scale);
         if (side === "left") {
-          context.setLineDash([3, 3]);
+          // iOS Swift Charts 的网格是细实线
+          context.setLineDash([]);
           context.beginPath();
           context.moveTo(plot.padL, y);
           context.lineTo(plot.width - plot.padR, y);
@@ -414,34 +491,12 @@ Component({
     /** 取游标时刻附近各条曲线的值。离得超过该曲线自身间隔的一半以上就显示破折号，避免把断线两侧连成一个读数。 */
     readoutAt(plot: Plot, cursor: number | null, unit: string, withDate: boolean): string {
       if (cursor === null) return "";
-      const parts: string[] = [];
-      let snapped = cursor;
-      let best = Infinity;
-      for (const row of plot.rows) {
-        for (const point of row.points) {
-          if (point.value === null) continue;
-          const distance = Math.abs(point.t - cursor);
-          if (distance < best) {
-            best = distance;
-            snapped = point.t;
-          }
-        }
-      }
-      for (const row of plot.rows) {
-        let nearest: Plotted | null = null;
-        let distance = Infinity;
-        for (const point of row.points) {
-          if (point.value === null) continue;
-          const gap = Math.abs(point.t - snapped);
-          if (gap < distance) {
-            distance = gap;
-            nearest = point;
-          }
-        }
-        const text = nearest && nearest.value !== null && distance <= neighborGap(row.points) ? readoutValue(nearest.value, unit) : "—";
-        parts.push(row.name ? `${row.name} ${text}` : text);
-      }
-      return parts.length ? `${readoutClock(snapped, withDate)}  ${parts.join("  ")}` : "";
+      const hit = nearestAt(plot, cursor);
+      const parts = hit.rows.map((row) => {
+        const text = row.point && row.point.value !== null ? readoutValue(row.point.value, unit) : "—";
+        return row.name ? `${row.name} ${text}` : text;
+      });
+      return parts.length ? `${readoutClock(hit.time, withDate)}  ${parts.join("  ")}` : "";
     },
     setReadout(text: string) {
       if (this.data.readout !== text) this.setData({ readout: text });

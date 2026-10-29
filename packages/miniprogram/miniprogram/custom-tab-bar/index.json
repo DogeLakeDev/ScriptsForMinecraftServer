@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "glass-tab-bar": "/components/glass-tab-bar/index"
+  }
+}

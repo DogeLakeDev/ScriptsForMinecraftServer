@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page with-dock">
   <conn-banner />
   <view wx:if="{{online && !manualRestart}}" class="callout">
     <text class="i i-info"></text>
@@ -13,10 +13,6 @@
       <text class="i i-upload"></text>
       <text>从聊天文件导入</text>
     </view>
-    <view class="btn {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
-      <text class="i i-restart"></text>
-      <text>重启 BDS</text>
-    </view>
   </view>
 
   <view class="surface">
@@ -25,42 +21,40 @@
         <text class="i i-search"></text>
         <input value="{{query}}" placeholder="按名称或 UUID 筛选" placeholder-class="placeholder" bindinput="onQuery" />
       </view>
-      <view class="segmented">
-        <view class="segmented-item {{kind === 'all' ? 'active' : ''}}" data-value="all" bindtap="setKind">全部 {{counts.all}}</view>
-        <view class="segmented-item {{kind === 'behavior' ? 'active' : ''}}" data-value="behavior" bindtap="setKind">行为包 {{counts.behavior}}</view>
-        <view class="segmented-item {{kind === 'resource' ? 'active' : ''}}" data-value="resource" bindtap="setKind">资源包 {{counts.resource}}</view>
-      </view>
     </view>
     <view class="surface-list">
-      <view wx:for="{{rows}}" wx:key="id" class="list-item {{item.enabled ? '' : 'muted-row'}}">
-        <image wx:if="{{item.icon}}" class="pack-icon" src="{{item.icon}}" mode="aspectFill" />
-        <view wx:else class="tile {{item.kind === 'behavior' ? 'tile-pastel-2' : ''}}">
-          <text class="i {{item.kind === 'behavior' ? 'i-cube' : 'i-image'}}"></text>
-        </view>
-        <view class="list-main">
-          <view class="list-title">
-            <text class="truncate">{{item.name}}</text>
+      <!-- 左滑露出「卸载」：没有卸载权限时不能左滑；只读或平台包时按钮置灰，点按由 uninstall 提示原因 -->
+      <swipe-row
+        wx:for="{{rows}}"
+        wx:key="id"
+        divider="{{index > 0}}"
+        disabled="{{!canUninstall}}"
+        action-label="卸载"
+        action-disabled="{{!editable || item.protected}}"
+        data-id="{{item.id}}"
+        bindaction="uninstall"
+      >
+        <view class="list-item {{item.enabled ? '' : 'muted-row'}}">
+          <image wx:if="{{item.icon}}" class="pack-icon" src="{{item.icon}}" mode="aspectFill" />
+          <view wx:else class="tile {{item.kind === 'behavior' ? 'tile-pastel-2' : ''}}">
+            <text class="i {{item.kind === 'behavior' ? 'i-cube' : 'i-image'}}"></text>
           </view>
-          <view class="row pack-meta">
-            <text class="badge {{item.kind === 'behavior' ? 'tone-accent' : 'tone-info'}}">{{item.kind === 'behavior' ? '行为包' : '资源包'}}</text>
-            <text wx:if="{{item.protected}}" class="badge">平台包</text>
-            <text class="small muted mono">v{{item.version}}</text>
+          <view class="list-main">
+            <view class="list-title">
+              <text class="truncate">{{item.name}}</text>
+            </view>
+            <view class="row pack-meta">
+              <text class="badge {{item.kind === 'behavior' ? 'tone-accent' : 'tone-info'}}">{{item.kind === 'behavior' ? '行为包' : '资源包'}}</text>
+              <text wx:if="{{item.protected}}" class="badge">平台包</text>
+              <text class="small muted mono">v{{item.version}}</text>
+            </view>
+            <view class="list-sub truncate mono" data-id="{{item.id}}" bindlongpress="copyId">{{item.id}}</view>
           </view>
-          <view class="list-sub truncate mono" data-id="{{item.id}}" bindlongpress="copyId">{{item.id}}</view>
-        </view>
-        <view class="list-end">
-          <view class="switch {{item.enabled ? 'on' : ''}} {{editable ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="toggle"></view>
-          <view
-            wx:if="{{canUninstall}}"
-            class="btn btn-sm btn-icon btn-danger-soft {{editable && !item.protected ? '' : 'disabled'}}"
-            hover-class="hover"
-            data-id="{{item.id}}"
-            bindtap="uninstall"
-          >
-            <text class="i i-sm i-trash"></text>
+          <view class="list-end">
+            <view class="switch {{item.enabled ? 'on' : ''}} {{editable ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="toggle"></view>
           </view>
         </view>
-      </view>
+      </swipe-row>
       <empty-state
         wx:if="{{!rows.length}}"
         icon="package"
@@ -70,6 +64,14 @@
         <view wx:if="{{counts.all}}" class="btn btn-sm" hover-class="hover" bindtap="clearFilters">清除筛选</view>
       </empty-state>
     </view>
+  </view>
+</view>
+
+<!-- 底部悬浮栏：包类型（全部 / 行为包 / 资源包，带数量）切换 + 圆形「重启 BDS」 -->
+<view class="dock">
+  <glass-tab-bar docked="{{true}}" tabs="{{kindTabs}}" current="{{kind}}" bindselect="selectKind" />
+  <view class="dock-button glass {{restartReason ? 'disabled' : ''}}" hover-class="hover" aria-role="button" aria-label="重启 BDS" bindtap="restart">
+    <text class="i i-restart"></text>
   </view>
 </view>
 <confirm-sheet id="confirm" />

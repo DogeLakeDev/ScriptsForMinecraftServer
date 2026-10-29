@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "东方犬明湖"
+  "navigationBarTitleText": "东方犬明湖",
+  "enablePullDownRefresh": true
 }

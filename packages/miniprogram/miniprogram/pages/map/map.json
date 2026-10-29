@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "地图",
-  "disableScroll": true
+  "disableScroll": true,
+  "usingComponents": {
+    "map-sheet": "/components/map-sheet/index"
+  }
 }

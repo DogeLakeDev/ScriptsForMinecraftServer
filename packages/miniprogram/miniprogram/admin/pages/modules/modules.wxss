@@ -9,22 +9,26 @@
   min-width: 0;
   background: var(--c-fill);
 }
-.row > .search-fill {
-  background: var(--c-block);
-}
+/* 模块索引卡片：标题行 + 简介 + 徽章 + 安装按钮 */
 .card {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 14px 16px 16px;
 }
 .card-hover {
-  opacity: 0.85;
+  opacity: 0.6;
+}
+.card .b {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
 }
 .card-desc {
   color: var(--c-text-2);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .card-foot {
   padding-top: 4px;
@@ -33,9 +37,11 @@
   text-align: center;
   padding: 24px;
 }
+/* 半屏弹窗标题：iOS Headline 17 Semibold */
 .sheet-title {
-  font-size: 17px;
-  line-height: 24px;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
   font-weight: 600;
   color: var(--c-text);
 }
@@ -50,20 +56,18 @@
   text-align: left;
 }
 .sheet-desc {
-  font-size: 15px;
-  line-height: 22px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
 }
 .dep-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-l);
   background: var(--c-fill);
 }
 .dep-link {
   margin-top: 6px;
-}
-.sheet-actions {
-  width: 100%;
 }

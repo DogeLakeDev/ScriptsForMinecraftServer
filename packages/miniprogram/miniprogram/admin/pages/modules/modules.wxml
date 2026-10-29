@@ -1,25 +1,10 @@
-<view class="page">
+<view class="page with-dock">
   <conn-banner />
   <view wx:if="{{online && !manualRestart}}" class="callout">
     <text class="i i-info"></text>
     <view class="callout-body">
       <view class="callout-title">请先更新平台</view>
       <view class="callout-text">当前平台的模块接口仍会自动停服，升级前只允许查看。</view>
-    </view>
-  </view>
-
-  <view class="row">
-    <view class="segmented spacer">
-      <view class="segmented-item {{tab === 'installed' ? 'active' : ''}}" data-value="installed" bindtap="setTab">
-        <text class="i i-sm i-list"></text>已安装<text class="segmented-count">{{counts.all}}</text>
-      </view>
-      <view class="segmented-item {{tab === 'discover' ? 'active' : ''}}" data-value="discover" bindtap="setTab">
-        <text class="i i-sm i-search"></text>可安装
-      </view>
-    </view>
-    <view class="btn {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
-      <text class="i i-restart"></text>
-      <text>重启 BDS</text>
     </view>
   </view>
 
@@ -37,27 +22,30 @@
       </view>
     </view>
     <view class="surface-list">
-      <view wx:for="{{installed}}" wx:key="folder" class="list-item {{item.enabled ? '' : 'muted-row'}}">
-        <view class="tile {{item.enabled ? 'tile-pastel-2' : 'tile-neutral'}}"><text class="i i-modules"></text></view>
-        <view class="list-main">
-          <view class="list-title">
-            <text class="truncate">{{item.title}}</text>
-            <text wx:if="{{item.linked}}" class="badge tone-info"><text class="i i-sm i-link"></text>本地链接</text>
+      <!-- 左滑露出「卸载」：只读或本地链接模块时按钮置灰，点按由 uninstall 提示原因 -->
+      <swipe-row
+        wx:for="{{installed}}"
+        wx:key="folder"
+        divider="{{index > 0}}"
+        action-label="卸载"
+        action-disabled="{{!editable || item.linked}}"
+        data-folder="{{item.folder}}"
+        bindaction="uninstall"
+      >
+        <view class="list-item {{item.enabled ? '' : 'muted-row'}}">
+          <view class="tile {{item.enabled ? 'tile-pastel-2' : 'tile-neutral'}}"><text class="i i-modules"></text></view>
+          <view class="list-main">
+            <view class="list-title">
+              <text class="truncate">{{item.title}}</text>
+              <text wx:if="{{item.linked}}" class="badge tone-info"><text class="i i-sm i-link"></text>本地链接</text>
+            </view>
+            <view class="list-sub truncate mono">{{item.sub}} · {{item.version}}</view>
           </view>
-          <view class="list-sub truncate mono">{{item.sub}} · {{item.version}}</view>
-        </view>
-        <view class="list-end">
-          <view class="switch {{item.enabled ? 'on' : ''}} {{editable ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="toggle"></view>
-          <view
-            class="btn btn-sm btn-icon btn-danger-soft {{editable && !item.linked ? '' : 'disabled'}}"
-            hover-class="hover"
-            data-folder="{{item.folder}}"
-            bindtap="uninstall"
-          >
-            <text class="i i-sm i-trash"></text>
+          <view class="list-end">
+            <view class="switch {{item.enabled ? 'on' : ''}} {{editable ? '' : 'disabled'}}" data-id="{{item.id}}" bindtap="toggle"></view>
           </view>
         </view>
-      </view>
+      </swipe-row>
       <empty-state wx:if="{{!installed.length}}" icon="modules" title="{{counts.all ? '没有匹配的模块' : '尚未安装模块'}}">
         <view wx:if="{{counts.all}}" class="btn btn-sm" hover-class="hover" bindtap="clearFilters">清除筛选</view>
       </empty-state>
@@ -67,11 +55,11 @@
   <!-- 可安装 -->
   <block wx:if="{{tab === 'discover'}}">
     <view class="row">
-      <view class="search search-fill">
+      <view class="search glass flex1">
         <text class="i i-search"></text>
         <input value="{{search}}" placeholder="搜索官方模块索引" placeholder-class="placeholder" confirm-type="search" bindinput="onSearchInput" bindconfirm="onSearchConfirm" />
       </view>
-      <view class="btn" hover-class="hover" bindtap="onSearchConfirm">
+      <view class="btn btn-glass btn-field" hover-class="hover" bindtap="onSearchConfirm">
         <text wx:if="{{loading}}" class="i i-loader spin"></text>
         <text>搜索</text>
       </view>
@@ -125,6 +113,14 @@
   </block>
 </view>
 
+<!-- 底部悬浮栏：已安装 / 可安装 切换 + 圆形「重启 BDS」 -->
+<view class="dock">
+  <glass-tab-bar docked="{{true}}" tabs="{{dockTabs}}" current="{{tab}}" bindselect="selectTab" />
+  <view class="dock-button glass {{restartReason ? 'disabled' : ''}}" hover-class="hover" aria-role="button" aria-label="重启 BDS" bindtap="restart">
+    <text class="i i-restart"></text>
+  </view>
+</view>
+
 <!-- 模块详情 -->
 <mp-half-screen-dialog show="{{!!detail}}" bindclose="closeDetail" ext-class="module-sheet">
   <view slot="title" class="row sheet-title">
@@ -165,7 +161,7 @@
       </view>
     </view>
   </view>
-  <view slot="footer" class="sheet-actions">
+  <view slot="footer" class="sheet-buttons">
     <view
       class="btn btn-lg btn-primary btn-block {{detail.canInstall ? '' : 'disabled'}}"
       hover-class="hover"

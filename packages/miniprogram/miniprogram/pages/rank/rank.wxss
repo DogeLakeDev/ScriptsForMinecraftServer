@@ -1,0 +1,34 @@
+/* 排行榜：计分项芯片横滑、名次数字列、底部「我的」玻璃条 */
+.rank-chips {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+  margin: 0 -16px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+.rank-num {
+  flex: none;
+  width: 36px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--c-text-2);
+  font-size: var(--fs-subheadline);
+}
+.rank-with-bar {
+  padding-bottom: calc(24px + var(--tab-bar-space) + 56px);
+}
+.rank-my {
+  position: fixed;
+  left: 21px;
+  right: 21px;
+  bottom: calc(var(--tab-bar-space) + 8px);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+}

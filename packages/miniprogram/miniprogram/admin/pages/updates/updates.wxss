@@ -1,18 +1,26 @@
+/* 三类更新各占一张分组卡片：标题行（底块 + 名称 + 状态徽章）+ 版本 / 说明 + 操作按钮 */
 .update-card {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 14px 16px 16px;
 }
 .update-card > .btn {
   align-self: flex-start;
+}
+/* 卡片标题（平台 / 模块 / 服务端）：与列表行标题同为 Body 17 */
+.update-card .list-main {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: var(--ls-body);
 }
 .version {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
 }
 .update-item {
   gap: 12px;
@@ -22,10 +30,14 @@
   max-height: 160px;
   overflow: auto;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-l);
   background: var(--c-fill);
   color: var(--c-text-2);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
   white-space: pre-wrap;
+}
+/* 备份分组里的提示条：位于分组标题与列表卡片之间 */
+.backup-callout {
+  margin-bottom: 12px;
 }

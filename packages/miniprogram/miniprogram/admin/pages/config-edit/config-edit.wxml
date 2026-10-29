@@ -46,9 +46,9 @@
       desc="{{format === 'properties' ? '请切换到「源码」视图编辑此文件' : '没有可直接表单化的顶层字段'}}"
     />
     <block wx:elif="{{form.state === 'fields'}}">
-      <view wx:for="{{form.groups}}" wx:for-item="group" wx:key="name" class="surface form-group">
-        <view wx:if="{{group.name}}" class="surface-head"><text class="surface-title">{{group.name}}</text></view>
-        <view class="form-list">
+      <view wx:for="{{form.groups}}" wx:for-item="group" wx:key="name" class="section form-group">
+        <view wx:if="{{group.name}}" class="section-header"><text class="section-title">{{group.name}}</text></view>
+        <view class="surface form-list">
           <view wx:for="{{group.fields}}" wx:for-item="field" wx:key="key" class="form-row">
             <view class="form-row-head">
               <view class="form-row-text">
@@ -128,7 +128,7 @@
     </view>
     <view class="row">
       <view class="btn btn-ghost {{dirty && !saving ? '' : 'disabled'}}" hover-class="hover" bindtap="discard">放弃</view>
-      <view class="btn spacer {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
+      <view class="btn btn-glass spacer {{restartReason ? 'disabled' : ''}}" hover-class="hover" bindtap="restart">
         <text class="i i-restart"></text>
         <text>重启服务</text>
       </view>

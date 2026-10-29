@@ -3,20 +3,28 @@
     <conn-banner />
     <!-- 搜索 + 日期 + 工具 -->
     <view class="row">
-      <view class="search flex1">
+      <view class="search glass flex1">
         <text class="i i-search"></text>
         <input value="{{query}}" placeholder="搜索日志正文" placeholder-class="placeholder" confirm-type="search" bindinput="onQuery" />
         <text wx:if="{{query}}" class="i i-x" bindtap="clearFilters"></text>
       </view>
       <picker wx:if="{{canRange}}" mode="date" value="{{day}}" bindchange="onPickDay">
-        <view class="btn btn-icon {{day ? 'btn-primary' : ''}}" hover-class="hover">
+        <view class="btn btn-icon btn-glass btn-field {{day ? 'btn-primary' : ''}}" hover-class="hover">
           <text class="i {{rangeLoading ? 'i-loader spin' : 'i-calendar'}}"></text>
         </view>
       </picker>
-      <view class="btn btn-icon" hover-class="hover" bindtap="toggleWrap">
-        <text class="i i-wrap {{wrap ? '' : 'muted'}}"></text>
+      <!-- 自动换行开关：打开为选中态（强调色实底白色符号，同日期按钮），关闭为普通玻璃按钮 -->
+      <view
+        class="btn btn-icon btn-glass btn-field {{wrap ? 'btn-primary' : ''}}"
+        hover-class="hover"
+        aria-role="switch"
+        aria-checked="{{wrap}}"
+        aria-label="自动换行"
+        bindtap="toggleWrap"
+      >
+        <text class="i i-wrap"></text>
       </view>
-      <view class="btn btn-icon" hover-class="hover" bindtap="clearScreen" bindlongpress="restoreScreen">
+      <view class="btn btn-icon btn-glass btn-field" hover-class="hover" bindtap="clearScreen" bindlongpress="restoreScreen">
         <text class="i i-eraser"></text>
       </view>
     </view>
@@ -26,7 +34,7 @@
         <view
           wx:for="{{levels}}"
           wx:key="value"
-          class="chip {{item.active ? 'active' : ''}}"
+          class="chip chip-glass {{item.active ? 'active' : ''}}"
           data-value="{{item.value}}"
           bindtap="toggleLevel"
         >
@@ -38,7 +46,7 @@
         <view
           wx:for="{{sources}}"
           wx:key="name"
-          class="chip {{item.active ? 'active' : ''}}"
+          class="chip chip-glass {{item.active ? 'active' : ''}}"
           data-name="{{item.name}}"
           bindtap="toggleSource"
         >
@@ -87,13 +95,13 @@
     </view>
     <view wx:if="{{!rows.length}}" class="log-hint">{{online ? (total ? '没有匹配的日志' : '暂无日志') : '连接实例后显示日志'}}</view>
   </scroll-view>
-  <view wx:if="{{!follow}}" class="follow-btn" hover-class="hover" bindtap="followLatest">
-    <text class="i i-sm i-arrow-down"></text>
+  <view wx:if="{{!follow}}" class="btn btn-icon btn-glass btn-field follow-btn" hover-class="hover" bindtap="followLatest">
+    <text class="i i-arrow-down"></text>
   </view>
 
-  <!-- 命令输入 -->
-  <view class="command-bar">
-    <view class="btn btn-sm mono" hover-class="hover" bindtap="pickTarget">
+  <!-- 命令输入：iOS 27「信息」输入栏，玻璃胶囊；有内容时才出现发送按钮 -->
+  <view class="command-bar glass">
+    <view class="btn btn-sm mono command-target" hover-class="hover" bindtap="pickTarget">
       <text>{{target}}</text>
       <text class="i i-sm i-chevron-down"></text>
     </view>
@@ -108,11 +116,11 @@
       bindinput="onCommand"
       bindconfirm="send"
     />
-    <view class="btn btn-sm btn-icon" hover-class="hover" bindtap="pickHistory">
-      <text class="i i-sm i-history"></text>
+    <view class="btn btn-icon command-tool" hover-class="hover" bindtap="pickHistory">
+      <text class="i i-history"></text>
     </view>
-    <view class="btn btn-sm btn-icon btn-primary {{command && editable ? '' : 'disabled'}}" hover-class="hover" bindtap="send">
-      <text class="i i-sm {{sending ? 'i-loader spin' : 'i-arrow-up'}}"></text>
+    <view wx:if="{{command || sending}}" class="btn btn-icon btn-primary command-send {{editable ? '' : 'disabled'}}" hover-class="hover" bindtap="send">
+      <text class="i {{sending ? 'i-loader spin' : 'i-arrow-up'}}"></text>
     </view>
   </view>
 </view>

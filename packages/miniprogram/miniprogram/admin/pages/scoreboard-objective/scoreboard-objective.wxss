@@ -1,0 +1,117 @@
+/* 弹窗命令预览与列表页共用 */
+@import "../scoreboard/scoreboard.wxss";
+
+/* 统计格、头像、弹窗表单与按钮行在 styles/base.wxss（.stat / .avatar / .sheet-form / .sheet-buttons） */
+/* 参与者卡片顶部：搜索框 + 排序胶囊 */
+.scoreboard-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 卡片内的搜索框用填充底色，与卡片背景区分 */
+.scoreboard-search {
+  background: var(--c-fill);
+}
+/* 显示位置徽章是卡片的第一块内容，与下方统计之间不留双倍间距 */
+.scoreboard-slots {
+  gap: 6px;
+  padding-bottom: 0;
+}
+.scoreboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 8px;
+}
+.scoreboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scoreboard-rank {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scoreboard-rank-no {
+  flex: none;
+  width: 18px;
+  font-size: var(--fs-caption-1);
+  text-align: right;
+}
+.scoreboard-rank-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.scoreboard-rank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+  letter-spacing: var(--ls-subheadline);
+}
+.scoreboard-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--c-fill-2);
+  overflow: hidden;
+}
+.scoreboard-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--c-primary);
+}
+.scoreboard-fill.negative {
+  background: var(--c-danger);
+}
+.scoreboard-histogram {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: 120px;
+}
+.scoreboard-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.scoreboard-column-count {
+  min-height: 14px;
+  color: var(--c-text-3);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+/* 柱形：iOS Swift Charts BarMark 的小圆角顶部，实色强调色 */
+.scoreboard-column-bar {
+  border-radius: 4px 4px 0 0;
+  background: var(--c-progress);
+}
+.scoreboard-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 0.5px solid var(--c-line);
+  font-size: var(--fs-caption-1);
+}
+/* 参与者行尾的分数 */
+.scoreboard-score {
+  flex: none;
+  min-width: 40px;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  text-align: right;
+}
+.scoreboard-footer {
+  padding: 8px 16px 12px;
+  text-align: center;
+}
+.scoreboard-number {
+  gap: 8px;
+}

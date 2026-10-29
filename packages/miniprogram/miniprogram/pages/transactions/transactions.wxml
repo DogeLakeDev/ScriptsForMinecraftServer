@@ -1,0 +1,45 @@
+<view class="page">
+  <view wx:if="{{!configured}}" class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-title">尚未配置服务器地址</view>
+      <view class="callout-text">请在 core/server.ts 填写 mp-gateway 地址后重新编译。</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{error}}" class="callout tone-danger">
+    <text class="i i-alert"></text>
+    <view class="callout-body">
+      <view class="callout-title">无法读取交易记录</view>
+      <view class="callout-text">{{error}}</view>
+      <view class="link" bindtap="reload">重试</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{!loading && !bound}}" class="surface">
+    <empty-state icon="user" title="尚未绑定游戏账号" desc="绑定后可查看交易记录">
+      <view class="btn btn-primary" hover-class="hover" bindtap="openMe">去绑定</view>
+    </empty-state>
+  </view>
+
+  <block wx:else>
+    <view class="surface">
+      <view wx:if="{{loading && !records.length}}" class="surface-body">
+        <text class="small muted">读取中…</text>
+      </view>
+      <view wx:elif="{{records.length}}" class="surface-list">
+        <view wx:for="{{records}}" wx:key="id" class="list-item">
+          <view class="list-main">
+            <view class="list-title"><text class="truncate">{{item.reason}}</text></view>
+            <view class="list-sub">{{item.timeText}}</view>
+            <view class="list-sub muted">{{item.balanceText}}</view>
+          </view>
+          <text class="num b {{item.amountClass}}">{{item.amountText}}</text>
+        </view>
+      </view>
+      <empty-state wx:elif="{{!loading}}" icon="activity" title="还没有交易" desc="发生经济变动后会出现在这里" />
+    </view>
+    <view wx:if="{{loadingMore}}" class="small muted tx-footer">加载更多…</view>
+    <view wx:elif="{{records.length && !hasMore}}" class="small muted tx-footer">共 {{total}} 条</view>
+  </block>
+</view>

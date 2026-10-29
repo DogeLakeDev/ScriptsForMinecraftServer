@@ -1,0 +1,5 @@
+<!-- 玩家端自定义标签栏（app.json tabBar.custom）：外观由 glass-tab-bar 渲染，选中态由各标签页 onShow 同步 -->
+<!-- theme-scope：custom-tab-bar 不在 page 节点下，需在此重新声明 page 上的主题变量（见 styles/tokens.wxss） -->
+<view class="theme-scope">
+  <glass-tab-bar tabs="{{tabs}}" current="{{current}}" bindselect="onSelect" />
+</view>

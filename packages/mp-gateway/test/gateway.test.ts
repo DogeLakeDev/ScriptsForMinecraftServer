@@ -110,6 +110,7 @@ async function launch(options: { wechat?: WechatIdentity | null; activity?: Play
     dbUrl: "http://127.0.0.1:1",
     devicesFile: path.join(workDir, "devices.json"),
     mapUrl: null,
+    startServices: [],
   };
   const gateway: RunningGateway = await startGateway(config, {
     wechat: options.wechat === undefined ? fakeWechat : options.wechat,

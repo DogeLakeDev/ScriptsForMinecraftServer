@@ -1,0 +1,22 @@
+<!-- 地图底部面板：可用区域（不接收触摸）内贴底的玻璃面板；头部可拖动，正文可滚动 -->
+<wxs module="sheet" src="./sheet.wxs"></wxs>
+<view id="area" class="map-sheet-area">
+  <!-- 面板顶边右上方的控件（accessory 插槽，如图层 / 定位胶囊）：位置与透明度由 sheet.wxs 随面板高度设置 -->
+  <view class="map-sheet-accessory"><slot name="accessory"></slot></view>
+  <view class="map-sheet glass" sheetlayout="{{layout}}" change:sheetlayout="{{sheet.setLayout}}">
+    <view
+      id="header"
+      class="map-sheet-header"
+      bindtouchstart="{{sheet.start}}"
+      bindtouchmove="{{sheet.move}}"
+      bindtouchend="{{sheet.end}}"
+      bindtouchcancel="{{sheet.end}}"
+    >
+      <view class="map-sheet-grabber"></view>
+      <slot name="header"></slot>
+    </view>
+    <scroll-view class="map-sheet-body" scroll-y="{{scrollable}}" scroll-top="{{scrollTop}}" enhanced show-scrollbar="{{false}}">
+      <slot></slot>
+    </scroll-view>
+  </view>
+</view>

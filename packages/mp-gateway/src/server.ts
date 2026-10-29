@@ -7,7 +7,9 @@
  *   PUT  …/packs/inbox   上传世界包到实例收件箱（需管理鉴权）
  *   …/auth/*、…/player/* 微信登录、玩家绑定与桌面端设备登录（player-routes.ts / device-routes.ts）
  *   GET  …/player/activity 玩家查看自己的行为记录（player-activity-routes.ts）
- *   GET  …/map/*         小程序「地图」页：只读转发 bluemap 地图服务（map-routes.ts）
+ *   GET  …/player/lands、…/player/transactions  我的领地与交易记录（player-asset-routes.ts）
+ *   GET  …/server/*、…/rank/*  首页状态 / 公告与排行榜（server-routes.ts / rank-routes.ts）
+ *   GET  …/map/*         小程序「地图」页：瓦片等转发 bluemap；领地改走 db-server 实时表（map-routes.ts）
  * 管理鉴权走鉴权链（authenticators.ts）：静态令牌、小程序管理员会话、桌面设备凭证三者等价。
  * WebSocket 鉴权失败时先完成升级再以 4401 / 4403 关闭，让客户端拿到可读的原因，而不是一个笼统的握手失败。
  */
@@ -24,7 +26,11 @@ import { createDbActivitySource, type PlayerActivitySource } from "./activity-cl
 import { createHttpMapSource, type MapSource } from "./map-client.js";
 import { createMapRoutes } from "./map-routes.js";
 import { createPlayerActivityRoutes } from "./player-activity-routes.js";
+import { createPlayerAssetRoutes } from "./player-asset-routes.js";
+import { createDbPlayerHomeSource, type PlayerHomeSource } from "./player-home-client.js";
 import { createPlayerRoutes } from "./player-routes.js";
+import { createRankRoutes } from "./rank-routes.js";
+import { createServerRoutes } from "./server-routes.js";
 import { findRoute, HttpError, type Route } from "./routes.js";
 import { receivePack, sendJson } from "./upload.js";
 import { createWechatIdentity, type WechatIdentity } from "./wechat.js";
@@ -58,12 +64,15 @@ export interface GatewayDeps {
   activity?: PlayerActivitySource;
   /** 地图数据源；缺省按 config.mapUrl 创建，null 表示未开启地图 */
   map?: MapSource | null;
+  /** 玩家端首页 / 排行 / 领地 / 流水；缺省经 db-server 创建 */
+  home?: PlayerHomeSource;
   grantStore?: DeviceGrantStore;
   log?: (message: string) => void;
 }
 
 /** 带时间戳的网关日志 */
-function defaultLog(message: string): void {
+/** 带时间戳的网关日志。使用场景：startGateway 未注入 log 时的缺省实现；main.ts 的依赖服务守卫共用同一格式。 */
+export function defaultLog(message: string): void {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
 
@@ -82,6 +91,7 @@ export function startGateway(config: GatewayConfig, deps: GatewayDeps = {}): Pro
 
   const wechat = deps.wechat !== undefined ? deps.wechat : config.wechat ? createWechatIdentity(config.wechat) : null;
   const directory = deps.directory ?? createDbPlayerDirectory(config.dbUrl);
+  const home = deps.home ?? createDbPlayerHomeSource(config.dbUrl);
   const devices = new DeviceLogin(deps.grantStore ?? createFileGrantStore(config.devicesFile));
   const playerAuth = { sessionSecret: config.sessionSecret, directory };
 
@@ -135,9 +145,20 @@ export function startGateway(config: GatewayConfig, deps: GatewayDeps = {}): Pro
     ...createPlayerRoutes({ ...playerAuth, wechat, loginThrottle: new AuthThrottle(), log }),
     ...createDeviceRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), devices, startThrottle: new AuthThrottle(10, 60_000), log }),
     ...createPlayerActivityRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), activity: deps.activity ?? createDbActivitySource(config.dbUrl) }),
+    ...createPlayerAssetRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), home }),
+    ...createServerRoutes({
+      ...playerAuth,
+      wechatEnabled: Boolean(wechat),
+      home,
+      directory,
+      root: config.root,
+      joinAddress: config.joinAddress,
+    }),
+    ...createRankRoutes({ ...playerAuth, wechatEnabled: Boolean(wechat), home }),
     ...createMapRoutes({
       ...playerAuth,
       wechatEnabled: Boolean(wechat),
+      home,
       map: deps.map !== undefined ? deps.map : config.mapUrl ? createHttpMapSource(config.mapUrl) : null,
     }),
   ];

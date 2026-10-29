@@ -4,7 +4,7 @@ import type { LogsDeleteResult, LogsTailResult } from "./logs.js";
 import type { ServicesListResult } from "./services.js";
 import type { MetricsResult } from "./metrics.js";
 import type { ActivityQueryResult, ActivityStatsResult } from "./activity.js";
-import type { ScoreboardApplyResult, ScoreboardReadResult } from "./scoreboard.js";
+import type { ScoreboardApplyResult, ScoreboardPublicObjectivesResult, ScoreboardReadResult } from "./scoreboard.js";
 
 /**
  * 配置表单的单个字段描述。
@@ -147,6 +147,10 @@ export interface ManagementMethodMap {
   "scoreboard.read": ScoreboardReadResult;
   /** 把计分板编辑操作转成控制台命令发送给 BDS。参数见 ScoreboardApplyParams。 */
   "scoreboard.apply": ScoreboardApplyResult;
+  /** 读取玩家端排行公开的计分项 id 列表。 */
+  "scoreboard.publicObjectives": ScoreboardPublicObjectivesResult;
+  /** 把某个计分项加入或移出公开名单。参数见 ScoreboardSetPublicObjectiveParams。 */
+  "scoreboard.setPublicObjective": ScoreboardPublicObjectivesResult;
   "updates.check": unknown;
   "updates.run": OperationAccepted;
   "attachment.plan": AttachmentPlan;

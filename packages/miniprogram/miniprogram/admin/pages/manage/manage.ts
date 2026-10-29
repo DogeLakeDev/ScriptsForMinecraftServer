@@ -20,6 +20,10 @@ const ENTRIES = [
   { key: "updates", title: "更新与备份", icon: "download", tone: "teal", url: "/admin/pages/updates/updates", capability: "updates" },
 ];
 
+/**
+ * 列表项按 iOS「设置」的样式只有一行标题；计数（meta）作为行尾的灰色值放在箭头前（如「无线局域网 未连接」），
+ * 不再作为标题下的描述行。
+ */
 function render(state: SessionState) {
   const caps = new Set<string>(state.handshake?.capabilities ?? []);
   const counts: Record<string, string> = {
@@ -34,9 +38,8 @@ function render(state: SessionState) {
   return {
     ...connectionView(state),
     hasProfile: Boolean(state.profile),
-    /** 当前实例为微信身份档案：显示「已授权设备」，断开后的重连说明也不同 */
+    /** 当前实例为微信身份档案：显示「已授权设备」 */
     wechat: Boolean(state.profile && isWechatProfile(state.profile)),
-    endpoint: state.profile?.endpoint ?? "",
     entries: ENTRIES.filter((entry) => state.status === "online" && (caps.size === 0 || caps.has(entry.capability))).map((entry) => ({
       ...entry,
       meta: counts[entry.key] ?? "",

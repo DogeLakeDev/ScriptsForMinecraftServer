@@ -1,0 +1,19 @@
+<!--
+  计分板两页共用的状态提示（数据来自 admin/core/scoreboard.ts 的 scoreboardStatus）：
+  数据服务不可用 / 快照不新鲜的说明，以及参与者过多被截断的提醒。
+  使用场景：计分项列表页 scoreboard、计分项详情页 scoreboard-objective。
+-->
+<template name="scoreboard-status">
+  <view wx:if="{{note}}" class="callout tone-{{noteTone}}">
+    <text class="i i-info"></text>
+    <view class="callout-body">
+      <view class="callout-text">{{note}}</view>
+    </view>
+  </view>
+  <view wx:if="{{truncated}}" class="callout tone-warning">
+    <text class="i i-warning"></text>
+    <view class="callout-body">
+      <view class="callout-text">参与者过多，游戏内只同步了前一部分分数，统计与排行可能不完整。</view>
+    </view>
+  </view>
+</template>

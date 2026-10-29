@@ -12,6 +12,7 @@
  */
 import { pipeline } from "node:stream/promises";
 import type { MapSource, MapTileKey } from "./map-client.js";
+import type { PlayerHomeSource } from "./player-home-client.js";
 import { requirePlayer, type PlayerAuthDeps } from "./player-auth.js";
 import { WECHAT_DISABLED } from "./player-routes.js";
 import { HttpError, type Route, type RouteContext } from "./routes.js";
@@ -21,8 +22,13 @@ import { sendJson } from "./upload.js";
 export interface MapRouteDeps extends PlayerAuthDeps {
   /** 未启用微信登录时需要会话的地图接口回 503，与其他玩家接口一致 */
   wechatEnabled: boolean;
-  /** 地图数据源；null 表示服务器未开启地图 */
+  /** 地图数据源；null 表示服务器未开启地图（瓦片 / 元数据 / 玩家 / 区域仍走它） */
   map: MapSource | null;
+  /**
+   * 领地数据源（读 db-server 的 land2_* 实时表）。
+   * 使用场景：/map/lands；与「我的领地」同源，不再走 bluemap 推送快照。
+   */
+  home: PlayerHomeSource;
 }
 
 /** 未开启地图时的统一错误 */
@@ -94,7 +100,9 @@ export function createMapRoutes(deps: MapRouteDeps): Route[] {
       method: "GET",
       suffix: "/map/lands",
       async handle(context) {
-        sendJson(context.response, 200, { lands: await sessionMap(context).lands() });
+        // 领地改走 db-server 实时表；仍要求玩家会话，且地图已开启（与其他地图接口一致的入口门槛）
+        sessionMap(context);
+        sendJson(context.response, 200, { lands: await deps.home.mapLands() });
       },
     },
     {

@@ -2,7 +2,7 @@
   <conn-banner />
   <view class="row">
     <text class="small muted spacer">{{checkedAt}}</text>
-    <view class="btn btn-sm {{online ? '' : 'disabled'}}" hover-class="hover" bindtap="checkNow">
+    <view class="btn btn-sm btn-glass {{online ? '' : 'disabled'}}" hover-class="hover" bindtap="checkNow">
       <text class="i i-sm {{checking ? 'i-loader spin' : 'i-refresh'}}"></text>
       <text>检查更新</text>
     </view>
@@ -59,38 +59,34 @@
     </view>
   </view>
 
-  <!-- 备份 -->
-  <view class="surface">
-    <view class="surface-head">
-      <text class="surface-title">可恢复备份</text>
-      <text wx:if="{{backups.length}}" class="badge">{{backups.length}} 份</text>
+  <!-- 备份：提示条放在分组标题与列表之间，列表卡片只放备份行 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">可恢复备份</text>
+      <text wx:if="{{backups.length}}" class="status">{{backups.length}} 份</text>
       <view class="btn btn-sm btn-icon" hover-class="hover" bindtap="refreshBackups">
         <text class="i i-sm {{backupsLoading ? 'i-loader spin' : 'i-refresh'}}"></text>
       </view>
       <view class="btn btn-sm {{editable && manualBackup && !backupRunning ? '' : 'disabled'}}" hover-class="hover" bindtap="createBackup">
-        <text class="i i-sm {{backupRunning ? 'i-loader spin' : 'i-archive'}}"></text>
+        <text wx:if="{{backupRunning}}" class="i i-sm i-loader spin"></text>
         <text>手动备份</text>
       </view>
     </view>
-    <view wx:if="{{legacyBackup}}" class="surface-body">
-      <view class="callout tone-warning">
-        <text class="i i-warning"></text>
-        <view class="callout-body">
-          <view class="callout-title">当前平台仍使用自动备份</view>
-          <view class="callout-text">升级实例平台并重新连接后，维护任务将不再创建全量备份，可在此手动创建。</view>
-        </view>
+    <view wx:if="{{legacyBackup}}" class="callout tone-warning backup-callout">
+      <text class="i i-warning"></text>
+      <view class="callout-body">
+        <view class="callout-title">当前平台仍使用自动备份</view>
+        <view class="callout-text">升级实例平台并重新连接后，维护任务将不再创建全量备份，可在此手动创建。</view>
       </view>
     </view>
-    <view wx:if="{{backupsError}}" class="surface-body">
-      <view class="callout tone-danger">
-        <text class="i i-x-circle"></text>
-        <view class="callout-body">
-          <view class="callout-title">读取备份失败</view>
-          <view class="callout-text">{{backupsError}}</view>
-        </view>
+    <view wx:if="{{backupsError}}" class="callout tone-danger backup-callout">
+      <text class="i i-x-circle"></text>
+      <view class="callout-body">
+        <view class="callout-title">读取备份失败</view>
+        <view class="callout-text">{{backupsError}}</view>
       </view>
     </view>
-    <view class="surface-list">
+    <view class="surface surface-list">
       <view wx:for="{{backups}}" wx:key="id" class="list-item">
         <view class="tile"><text class="i i-archive"></text></view>
         <view class="list-main">

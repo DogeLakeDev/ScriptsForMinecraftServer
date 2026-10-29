@@ -16,8 +16,10 @@
  *    标了 @outline 的名称改用 icons.tsx 里的路径，不读 Tabler 原图。
  * 3. miniprogram/assets/tabbar/<主题>/*.png
  *    原生标签栏图标：仍用 Phosphor（单独的 TAB_ICONS 表），按 theme.json 引用的路径与颜色渲染浅色 / 深色两套 PNG。
- * 4. miniprogram/styles/palette.wxss
- *    按 @sfmc-bds/ui 的 palette.ts 写出浅色 / 深色两套 --c-* 颜色变量，并核对 theme.json 的底色与色板一致。
+ * 4. miniprogram/styles/palette.wxss、vendor/palette.js
+ *    以 scripts/ios-palette.mjs（iOS 27 系统配色）覆盖 @sfmc-bds/ui 的 palette.ts，写出浅色 / 深色两套 --c-* 与 --chart-* 颜色变量，
+ *    并核对 theme.json 的导航栏 / 标签栏颜色与色板一致。同一份变量表另存为 vendor/palette.js，
+ *    供读不到 CSS 变量的 canvas 与 wx API（core/palette.ts）使用。
  */
 import { Resvg } from "@resvg/resvg-js";
 import { build } from "esbuild";
@@ -25,6 +27,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { IOS_EXTRA_TOKENS, IOS_TINT_TOKENS, iosChartColors, iosPalette } from "./ios-palette.mjs";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const appDir = path.join(packageDir, "miniprogram");
@@ -82,7 +85,7 @@ const ICON_NAMES = [
   "unplug", "warning", "alert", "info", "checkCircle", "xCircle", "loader", "clock", "calendar", "copy",
   "download", "upload", "trash", "pencil", "more", "settings", "wrap", "eraser", "archive", "archiveRestore",
   "layers", "link", "zap", "code", "list", "bell", "bug", "activity", "image", "key", "shield", "lock",
-  "filter", "hardDrive", "external", "cpu", "fileCode", "eye", "monitor", "trophy", "minus",
+  "filter", "hardDrive", "external", "cpu", "fileCode", "eye", "monitor", "trophy", "minus", "location",
 ];
 
 /** 按 VENDOR_BUNDLES 打包运行时导出（CommonJS），并写出对应的类型声明 */
@@ -230,26 +233,41 @@ function phosphorTabSvg(name, weight) {
   return fs.readFileSync(file, "utf8");
 }
 
-/** 生成遮罩图标样式 */
+/**
+ * 把一份 SVG 写成遮罩图标规则 `.i-<类名>{mask-image:…}`。
+ * 遮罩只看不透明度：描边 / 填充改成纯黑即可，颜色由 .i 的 background-color（currentColor）决定。
+ * 使用场景：buildIcons 生成 Tabler 页面图标与 Phosphor 标签栏图标。
+ * @param {string} className 类名（不含 .i- 前缀）
+ * @param {string} source SVG 源码
+ */
+function maskRule(className, source) {
+  const svg = source
+    .replace(/\s+/g, " ")
+    .replace(/(stroke|fill)="currentColor"/g, '$1="#000"')
+    .replace(/"/g, "'")
+    .trim();
+  const encoded = svg.replace(/%/g, "%25").replace(/#/g, "%23").replace(/</g, "%3C").replace(/>/g, "%3E");
+  return `.i-${className}{-webkit-mask-image:url("data:image/svg+xml,${encoded}");mask-image:url("data:image/svg+xml,${encoded}")}`;
+}
+
+/**
+ * 生成遮罩图标样式：Tabler 页面图标 .i-<名称>，以及标签栏图标 .i-tab-<名称>（Phosphor regular）/ .i-tab-<名称>-fill（Phosphor fill）。
+ * 标签栏图标供悬浮玻璃标签栏 components/glass-tab-bar 使用（玩家端 custom-tab-bar），与原生标签栏 PNG 同一套 TAB_ICONS。
+ */
 function buildIcons() {
   const source = fs.readFileSync(path.resolve(packageDir, "..", "ui", "src", "components", "icons.tsx"), "utf8");
   const iconsBlock = /const ICONS = \{([\s\S]*?)\} satisfies/.exec(source)?.[1] ?? "";
   const table = readIconTable();
   const outlines = readLocalOutlines(source);
-  const rules = ICON_NAMES.map((name) => {
-    // 遮罩只看不透明度：描边改成纯黑即可，颜色由 .i 的 background-color（currentColor）决定。
-    const svg = tablerSvg(table, outlines, iconsBlock, name)
-      .replace(/\s+/g, " ")
-      .replace(/stroke="currentColor"/g, 'stroke="#000"')
-      .replace(/"/g, "'")
-      .trim();
-    const encoded = svg.replace(/%/g, "%25").replace(/#/g, "%23").replace(/</g, "%3C").replace(/>/g, "%3E");
-    const css = name.replace(/([A-Z])/g, "-$1").toLowerCase();
-    return `.i-${css}{-webkit-mask-image:url("data:image/svg+xml,${encoded}");mask-image:url("data:image/svg+xml,${encoded}")}`;
-  });
-  const header = "/* 由 scripts/build-assets.mjs 从 Tabler Icons（MIT）生成，请勿手改；基础样式 .i 见 styles/base.wxss */\n";
-  fs.writeFileSync(path.join(appDir, "styles", "icons.wxss"), header + rules.join("\n") + "\n");
-  return rules.length;
+  const rules = ICON_NAMES.map((name) => maskRule(name.replace(/([A-Z])/g, "-$1").toLowerCase(), tablerSvg(table, outlines, iconsBlock, name)));
+  const tabRules = Object.keys(TAB_ICONS).flatMap((name) => [
+    maskRule(`tab-${name}`, phosphorTabSvg(name, "regular")),
+    maskRule(`tab-${name}-fill`, phosphorTabSvg(name, "fill")),
+  ]);
+  const header =
+    "/* 由 scripts/build-assets.mjs 从 Tabler Icons（MIT）与 Phosphor Icons（MIT，.i-tab-*）生成，请勿手改；基础样式 .i 见 styles/base.wxss */\n";
+  fs.writeFileSync(path.join(appDir, "styles", "icons.wxss"), header + [...rules, ...tabRules].join("\n") + "\n");
+  return rules.length + tabRules.length;
 }
 
 /** 原生标签栏图标目录（相对小程序根目录） */
@@ -293,10 +311,10 @@ const PALETTE_SOURCE = path.resolve(packageDir, "..", "ui", "src", "palette.ts")
 
 /**
  * theme.json 中必须与色板一致的颜色：theme.json → 色板键名。
- * 使用场景：theme.json 只接受 #rrggbb、不能引用 CSS 变量，所以导航栏 / 标签栏底色仍手写在 theme.json，
- * 构建时与色板核对，改了色板忘记同步时直接报错。tabText / tabSelected 在浅色色板里是半透明色，不做核对。
+ * 使用场景：theme.json 只接受 #rrggbb、不能引用 CSS 变量，所以导航栏 / 标签栏颜色仍手写在 theme.json，
+ * 构建时与色板核对，改了色板忘记同步时直接报错。iOS 色板的标签栏文字色（gray / accent）是不透明色，一并核对。
  */
-const THEME_JSON_TOKENS = { navBg: "bg", pageBg: "bg", tabBg: "block" };
+const THEME_JSON_TOKENS = { navBg: "bg", pageBg: "bg", tabBg: "block", tabText: "gray", tabSelected: "accent" };
 
 /** 打包并执行 palette.ts，取得 PALETTES 与 paletteVariables（与桌面端 applyCssVariables 同一份变量命名） */
 async function loadPalette() {
@@ -305,40 +323,105 @@ async function loadPalette() {
 }
 
 /**
+ * 合并出小程序的一套主题：桌面端色板打底，iOS 色板覆盖，再追加 iOS 扩展令牌。
+ * 使用场景：buildPalette 生成 palette.wxss 与核对 theme.json。
+ * iOS 色板只能出现桌面端已有的键或 IOS_EXTRA_TOKENS / IOS_TINT_TOKENS 登记的键，拼错键名时直接报错，避免生成无人引用的变量。
+ * @param {Record<string, string>} desktop 桌面端该主题的色板
+ * @param {"light" | "dark"} theme
+ */
+function miniprogramPalette(desktop, theme) {
+  const ios = iosPalette(theme);
+  const unknown = Object.keys(ios).filter((key) => !(key in desktop) && !(key in IOS_EXTRA_TOKENS) && !(key in IOS_TINT_TOKENS));
+  if (unknown.length) throw new Error(`ios-palette.mjs 中的令牌不在桌面端色板里，也未登记为扩展令牌：${unknown.join("、")}`);
+  return { ...desktop, ...ios };
+}
+
+/**
+ * 一套主题的全部 CSS 变量：沿用桌面端 paletteVariables 的命名，再把 --chart-* 换成 iOS 强调色。
+ * 使用场景：buildPalette 写 palette.wxss 与 vendor/palette.js，两处用同一份结果，保证 CSS 与 TS 读到的颜色一致。
+ * iOS 图表色数量必须与桌面端 CHART_COLORS 相同，增删图表色时两边一起改。
+ * @param {(palette: Record<string, string>) => [string, string][]} paletteVariables 桌面端的变量命名函数
+ * @param {Record<string, string>} palette miniprogramPalette 合并后的色板
+ * @param {"light" | "dark"} theme
+ * @param {number} desktopChartCount 桌面端 CHART_COLORS 的个数
+ * @returns {[string, string][]}
+ */
+function miniprogramVariables(paletteVariables, palette, theme, desktopChartCount) {
+  const chart = iosChartColors(theme);
+  if (chart.length !== desktopChartCount) {
+    throw new Error(`ios-palette.mjs 的 IOS_CHART_COLORS 有 ${chart.length} 个，桌面端 CHART_COLORS 有 ${desktopChartCount} 个，需保持一致`);
+  }
+  return paletteVariables(palette).map(([name, value]) => {
+    const match = /^--chart-(\d+)$/.exec(name);
+    return match ? [name, chart[Number(match[1]) - 1] ?? value] : [name, value];
+  });
+}
+
+/**
+ * 写出 vendor/palette.js 与类型声明：{ light, dark } 两套「CSS 变量名 → 颜色」。
+ * 使用场景：core/palette.ts 按当前主题取色，给 canvas 绘制（折线图、地图底色）与 wx.showModal 的 confirmColor 使用。
+ * @param {Record<"light" | "dark", [string, string][]>} variables
+ */
+function writePaletteModule(variables) {
+  const outDir = path.join(appDir, "vendor");
+  fs.mkdirSync(outDir, { recursive: true });
+  const header = "/* 由 scripts/build-assets.mjs 生成（与 styles/palette.wxss 同一份颜色），请勿手改 */";
+  const table = { light: Object.fromEntries(variables.light), dark: Object.fromEntries(variables.dark) };
+  fs.writeFileSync(path.join(outDir, "palette.js"), `${header}\n"use strict";\nexports.PALETTE_VARIABLES = ${JSON.stringify(table, null, 2)};\n`);
+  const names = variables.light.map(([name]) => JSON.stringify(name)).join("\n  | ");
+  fs.writeFileSync(
+    path.join(outDir, "palette.d.ts"),
+    `${header}\n/** 色板中的 CSS 变量名 */\nexport type PaletteVariable =\n  | ${names};\n` +
+      `/** 浅色 / 深色两套变量值 */\nexport declare const PALETTE_VARIABLES: Record<"light" | "dark", Record<PaletteVariable, string>>;\n`
+  );
+}
+
+/**
  * 生成 miniprogram/styles/palette.wxss：浅色写在 page 上，深色写在 prefers-color-scheme: dark 里，
- * 使用场景：小程序的 --c-* 颜色令牌与桌面端色板同源，不再在 tokens.wxss 里手抄。
+ * 使用场景：小程序的 --c-* 颜色令牌由 iOS 色板与桌面端色板合成，不在 tokens.wxss 里手抄。
  * 返回生成的变量个数（单个主题）。
  */
 async function buildPalette() {
-  const { PALETTES, paletteVariables } = await loadPalette();
-  /** @param {Record<string, string>} palette @param {string} indent */
-  const declarations = (palette, indent) => paletteVariables(palette).map(([name, value]) => `${indent}${name}: ${value};`);
+  const { PALETTES, CHART_COLORS, paletteVariables } = await loadPalette();
+  const palettes = { light: miniprogramPalette(PALETTES.light, "light"), dark: miniprogramPalette(PALETTES.dark, "dark") };
+  const variables = {
+    light: miniprogramVariables(paletteVariables, palettes.light, "light", CHART_COLORS.length),
+    dark: miniprogramVariables(paletteVariables, palettes.dark, "dark", CHART_COLORS.length),
+  };
+  /** @param {[string, string][]} list @param {string} indent */
+  const declarations = (list, indent) => list.map(([name, value]) => `${indent}${name}: ${value};`);
+  /*
+   * 变量声明的选择器：page 之外再挂 .theme-scope——custom-tab-bar 等不在 page 节点下渲染的内容继承不到 page 上的变量，
+   * 需在其根节点加 theme-scope 类（与 tokens.wxss 保持一致）。
+   */
+  const scope = "page, .theme-scope";
   const lines = [
-    `/* 由 scripts/build-assets.mjs 根据 packages/ui/src/palette.ts 生成，请勿手改 */`,
-    "page {",
-    ...declarations(PALETTES.light, "  "),
+    `/* 由 scripts/build-assets.mjs 根据 scripts/ios-palette.mjs（iOS 27 系统配色）生成，iOS 无对应的令牌沿用 packages/ui/src/palette.ts；请勿手改 */`,
+    `${scope} {`,
+    ...declarations(variables.light, "  "),
     "}",
     "",
     "@media (prefers-color-scheme: dark) {",
-    "  page {",
-    ...declarations(PALETTES.dark, "    "),
+    `  ${scope} {`,
+    ...declarations(variables.dark, "    "),
     "  }",
     "}",
     "",
   ];
   fs.writeFileSync(path.join(appDir, "styles", "palette.wxss"), lines.join("\n"));
+  writePaletteModule(variables);
 
   /** @type {Record<string, Record<string, string>>} */
   const themes = JSON.parse(fs.readFileSync(path.join(appDir, "theme.json"), "utf8"));
   for (const theme of /** @type {const} */ (["light", "dark"])) {
     for (const [field, token] of Object.entries(THEME_JSON_TOKENS)) {
-      const expected = PALETTES[theme][token];
+      const expected = palettes[theme][token];
       if (themes[theme]?.[field]?.toLowerCase() !== expected.toLowerCase()) {
         throw new Error(`theme.json 的 ${theme}.${field} 为 ${themes[theme]?.[field]}，应与色板 ${token} 一致：${expected}`);
       }
     }
   }
-  return paletteVariables(PALETTES.light).length;
+  return variables.light.length;
 }
 
 await buildVendor();
@@ -346,5 +429,5 @@ const paletteCount = await buildPalette();
 const count = buildIcons();
 const tabCount = buildTabIcons();
 console.log(
-  `[miniprogram] vendor/${Object.keys(VENDOR_BUNDLES).join(".js、vendor/")}.js、styles/palette.wxss（${paletteCount} 个颜色变量）、${count} 个图标与 ${tabCount} 个标签栏图标已生成`
+  `[miniprogram] vendor/${Object.keys(VENDOR_BUNDLES).join(".js、vendor/")}.js、vendor/palette.js、styles/palette.wxss（${paletteCount} 个颜色变量）、${count} 个图标与 ${tabCount} 个标签栏图标已生成`
 );

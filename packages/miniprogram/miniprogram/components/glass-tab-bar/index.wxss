@@ -1,0 +1,92 @@
+/*
+ * 规格取自 iOS 27 Builder 的 Tab Bar（Separate Search=False, Minimized=False）：
+ * 玻璃胶囊高 62、左右距屏幕 21、内边距 4；每项高 54，选中项为整项大小的浅灰圆角底块；
+ * 图标区 28 高，文字 10 / Semibold，图标与文字间距 1，项内上下内边距 6 / 7。
+ * 胶囊离屏幕底边的距离与页面需要让出的高度见 tokens.wxss 的 --tab-bar-*；玻璃材质见 base.wxss 的 .glass。
+ */
+.tab-bar {
+  position: fixed;
+  left: 21px;
+  right: 21px;
+  bottom: 12px;
+  bottom: var(--tab-bar-bottom);
+  z-index: 100;
+  display: flex;
+  height: var(--tab-bar-height);
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: var(--radius-full);
+}
+/*
+ * 停靠模式（Tab Bar 的 Separate Search=True）：位置交给页面的 .dock 容器（base.wxss），胶囊与右侧圆形按钮并排；
+ * 3 项及以上撑满剩余宽度；2 项时按内容收紧，Figma 中胶囊宽 208，即每项 (208 − 2 × 4) / 2 = 100。
+ */
+.tab-bar-docked {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  flex: 1;
+  min-width: 0;
+}
+.tab-bar-hug {
+  flex: none;
+}
+.tab-bar-hug .tab-bar-item {
+  flex: none;
+  width: 100px;
+}
+.tab-bar-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 8px 7px;
+  border-radius: var(--radius-full);
+  color: var(--c-text);
+  transition: background-color 0.2s;
+}
+.tab-bar-item.active {
+  background: var(--c-fill);
+  color: var(--c-accent);
+}
+.tab-bar-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+}
+.tab-bar-icon > .i {
+  width: 24px;
+  height: 24px;
+}
+/* 角标：图标右上角的红底数字（管理端「任务」的进行中任务数） */
+.tab-bar-badge {
+  position: absolute;
+  top: -2px;
+  left: 16px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+  background: var(--c-danger);
+  color: var(--c-on-danger);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+.tab-bar-text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 600;
+}

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "计分项",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "swipe-row": "/components/swipe-row/index"
+  }
+}

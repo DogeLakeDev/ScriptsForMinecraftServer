@@ -100,6 +100,24 @@ export interface ScoreboardApplyResult {
   sentAt: number;
 }
 
+/**
+ * scoreboard.publicObjectives 结果：玩家端排行「计分板」分类里公开的计分项 id 列表。
+ * 使用场景：管理端计分项详情页的「在排行中公开」开关；名单存在 db-server 的 settings.json。
+ */
+export interface ScoreboardPublicObjectivesResult {
+  ids: string[];
+}
+
+/**
+ * scoreboard.setPublicObjective 参数：把某个计分项加入或移出公开名单。
+ * 使用场景：管理端开关；按 id 增量改写，避免覆盖其他计分项的公开状态。
+ */
+export interface ScoreboardSetPublicObjectiveParams {
+  objectiveId: string;
+  /** true 加入公开名单，false 移出 */
+  public: boolean;
+}
+
 /** 计分板分数的取值范围（32 位有符号整数，与 BDS 一致） */
 export const SCOREBOARD_SCORE_MIN = -2147483648;
 export const SCOREBOARD_SCORE_MAX = 2147483647;

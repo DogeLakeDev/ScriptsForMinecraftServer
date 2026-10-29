@@ -1,16 +1,59 @@
 /*
  * tokens.wxss — 小程序专有的主题变量与页面底样式
  *
- * --c-* 颜色令牌不在这里：由 scripts/build-assets.mjs 按桌面端 @sfmc-bds/ui 的 palette.ts 生成到 styles/palette.wxss
- *（app.wxss 先引入它），浅色 / 深色随系统深色模式自动切换。
- * 这里只放小程序独有的部分：把 WeUI 组件使用的 --weui-* 变量映射到 --c-* 令牌（半屏弹窗、操作菜单等与页面配色统一），
- * 以及日志来源色亮度、等宽字体。
+ * --c-* 颜色令牌不在这里：由 scripts/build-assets.mjs 按 scripts/ios-palette.mjs（iOS 27 系统配色，iOS 无对应的令牌沿用
+ * 桌面端 @sfmc-bds/ui 的 palette.ts）生成到 styles/palette.wxss（app.wxss 先引入它），浅色 / 深色随系统深色模式自动切换。
+ * 这里只放小程序独有的部分：iOS 字号阶梯、圆角，把 WeUI 组件使用的 --weui-* 变量映射到 --c-* 令牌
+ *（半屏弹窗、操作菜单等与页面配色统一），以及日志来源色亮度、等宽字体。
+ *
+ * 选择器同时挂 .theme-scope：custom-tab-bar 不在 page 节点下渲染，继承不到 page 上的变量（TDesign 深色模式文档同样指出），
+ * 其根节点加 theme-scope 类后即可使用这里与 palette.wxss 的全部变量。
  */
-page {
+page, .theme-scope {
   --log-src-l: 42%;
   --font-mono: "JetBrains Mono", Menlo, Consolas, monospace;
-  /* 管理端底部导航（components/admin-nav）的高度，不含底部安全区；页面用 .with-admin-nav 预留同样高度 */
-  --admin-nav-height: 52px;
+  /* iOS 系统字体：iOS 上为 SF Pro + 苹方，安卓回退到系统无衬线字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  /*
+   * 底部悬浮玻璃标签栏（components/glass-tab-bar，玩家端 custom-tab-bar 与管理端 admin-nav 共用），规格取自 iOS 27 Builder 的 Tab Bar：
+   * --tab-bar-height 胶囊高度 62；--tab-bar-bottom 胶囊底边到屏幕底边的距离——Figma 中安全区 34 时为 21，
+   * 即「安全区 − 13」，没有底部安全区的机型至少留 12；--tab-bar-space 页面底部需要让出的总高度。
+   * 使用场景：.with-tabbar / .with-admin-nav 页面底部留白、控制台布局、地图底部信息卡。
+   */
+  --tab-bar-height: 62px;
+  --tab-bar-bottom: max(12px, calc(env(safe-area-inset-bottom) - 13px));
+  --tab-bar-space: calc(var(--tab-bar-height) + var(--tab-bar-bottom));
+
+  /*
+   * iOS Dynamic Type 字号阶梯（默认字号档）：--fs-* 字号、--lh-* 行高、--ls-* 字距，取自 iOS 27 Builder 的文字样式变量。
+   * 使用场景：base.wxss 的通用类与各页面样式按文字角色引用，不直接写像素值。
+   */
+  --fs-large-title: 34px;
+  --lh-large-title: 41px;
+  --ls-large-title: 0.4px;
+  --fs-title-2: 22px;
+  --lh-title-2: 28px;
+  --ls-title-2: -0.26px;
+  --fs-title-3: 20px;
+  --lh-title-3: 25px;
+  --ls-title-3: -0.45px;
+  --fs-body: 17px;
+  --lh-body: 22px;
+  --ls-body: -0.43px;
+  --fs-subheadline: 15px;
+  --lh-subheadline: 20px;
+  --ls-subheadline: -0.23px;
+  --fs-footnote: 13px;
+  --lh-footnote: 18px;
+  --ls-footnote: -0.08px;
+  --fs-caption-1: 12px;
+  --lh-caption-1: 16px;
+
+  /* iOS 27 Builder 的圆角变量：L 16 / XL 20 / XXL 26（分组列表卡片）；Full 为胶囊 */
+  --radius-l: 16px;
+  --radius-xl: 20px;
+  --radius-xxl: 26px;
+  --radius-full: 1000px;
 
   --weui-BG-0: var(--c-bg);
   --weui-BG-1: var(--c-bg);
@@ -25,18 +68,19 @@ page {
   --weui-FG-HALF: var(--c-text-2);
   --weui-RED: var(--c-danger);
   --weui-BRAND: var(--c-primary);
-  --weui-LINK: var(--c-info-text);
+  --weui-LINK: var(--c-link);
   --weui-BTN-DEFAULT-BG: var(--c-fill-2);
   --weui-DIALOG-LINE-COLOR: var(--c-line);
 
   background: var(--c-bg);
   color: var(--c-text);
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 20px;
 }
 
 @media (prefers-color-scheme: dark) {
-  page {
+  page, .theme-scope {
     --log-src-l: 70%;
     --weui-BG-5: var(--c-elevated);
   }

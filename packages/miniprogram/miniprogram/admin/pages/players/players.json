@@ -1,4 +1,7 @@
 {
   "navigationBarTitleText": "玩家与权限",
-  "enablePullDownRefresh": true
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "swipe-row": "/components/swipe-row/index"
+  }
 }

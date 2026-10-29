@@ -4,6 +4,7 @@
  * 使用场景：查看当前世界已安装的包、版本与图标，切换启用状态，卸载，或导入 .mcpack / .mcaddon / .zip。
  * 导入：从微信聊天选择文件 → 上传到网关收件箱 → 提交一次 packs.import（支持批量时一次提交全部，同桌面端 PacksPage）。
  */
+import type { GlassTab } from "../../../components/glass-tab-bar/index";
 import { confirmSheet, copy, guard, restartBlockReason, restartServices, submit } from "../../../core/actions";
 import { plainMinecraft } from "../../../core/format";
 import { connectionView, unwatchSession, watchSession } from "../../../core/page";
@@ -20,6 +21,13 @@ const iconLoading = new Set<string>();
 /** 页面状态（不放进 data） */
 const view = { kind: "all" as "all" | "behavior" | "resource", query: "" };
 
+/** 底部悬浮栏的包类型（glass-tab-bar docked）：key 与 view.kind 的取值一致，文字后接数量 */
+const KIND_TABS: { key: typeof view.kind; text: string; icon: string }[] = [
+  { key: "all", text: "全部", icon: "layers" },
+  { key: "behavior", text: "行为包", icon: "cube" },
+  { key: "resource", text: "资源包", icon: "image" },
+];
+
 function iconKey(state: SessionState, id: string, stamp: string | undefined): string {
   return session.can("pack-icons") && stamp ? `${state.profile?.id ?? ""}:${id}:${stamp}` : "";
 }
@@ -28,6 +36,7 @@ function render(state: SessionState) {
   const editable = session.editable && session.can("manual-restart");
   const needle = view.query.trim().toLowerCase();
   const behavior = state.packs.filter((row) => row.kind === "behavior").length;
+  const counts = { all: state.packs.length, behavior, resource: state.packs.length - behavior };
   const rows = state.packs
     .filter((row) => (view.kind === "all" || row.kind === view.kind) && `${plainMinecraft(row.name)} ${row.id}`.toLowerCase().includes(needle))
     .map((row) => ({
@@ -47,7 +56,8 @@ function render(state: SessionState) {
     restartReason: restartBlockReason("bds"),
     kind: view.kind,
     query: view.query,
-    counts: { all: state.packs.length, behavior, resource: state.packs.length - behavior },
+    counts,
+    kindTabs: KIND_TABS.map((tab): GlassTab => ({ ...tab, text: `${tab.text} ${counts[tab.key]}` })),
     rows,
   };
 }
@@ -100,6 +110,11 @@ Page({
 
   setKind(event: WechatMiniprogram.TouchEvent) {
     view.kind = event.currentTarget.dataset.value as typeof view.kind;
+    this.rerender();
+  },
+  /** 底部悬浮栏 glass-tab-bar 的 select 事件：切换包类型 */
+  selectKind(event: WechatMiniprogram.CustomEvent<{ key: string }>) {
+    view.kind = event.detail.key as typeof view.kind;
     this.rerender();
   },
   onQuery(event: WechatMiniprogram.Input) {
