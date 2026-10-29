@@ -1,5 +1,14 @@
 # @sfmc-bds/cli
 
+## 0.10.6
+
+### Patch Changes
+
+- 01bbb10: 检查更新与安装可使用国内 npm 源：`configs/runtime.json` 新增 `npm_registry`（环境变量 `SFMC_NPM_REGISTRY` 可覆盖），平台版本检查和模块 dist-tag 检查同时请求该源与 npm 官方源，取先返回的结果；平台升级与模块安装的 pnpm add 先用该源，失败时自动改用官方源重试。官方模块索引改为同时请求 GitHub 与 jsDelivr，GitHub 超时时不再拖慢模块检查。
+- a443c65: 修复排行榜：未传 limit 时不再被夹成 1 行（在线时长本月/总计只显示自己）；财富排行改读经济账户表 sfmc_economy_accounts，与「我的」余额同源，并合并同一玩家的 xuid / 玩家名重复账户，不再出现计分板离线占位名。
+- Updated dependencies [a443c65]
+  - @sfmc-bds/db-server@0.9.1
+
 ## 0.10.5
 
 ### Patch Changes

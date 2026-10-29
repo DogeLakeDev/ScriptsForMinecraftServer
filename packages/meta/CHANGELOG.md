@@ -1,5 +1,14 @@
 # @sfmc-bds/sfmc
 
+## 0.2.30
+
+### Patch Changes
+
+- Updated dependencies [01bbb10]
+- Updated dependencies [a443c65]
+  - @sfmc-bds/cli@0.10.6
+  - @sfmc-bds/db-server@0.9.1
+
 ## 0.2.29
 
 ### Patch Changes
