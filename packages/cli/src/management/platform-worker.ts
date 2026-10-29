@@ -7,6 +7,7 @@ import { toManagementError, type OperationRecord } from "@sfmc-bds/management";
 import { atomicJson } from "./tasks.js";
 import { readJson, runProcess } from "./domain.js";
 import { runPnpm } from "./maintenance.js";
+import { withNpmRegistry } from "../../scripts/module-install/lib/network-sources.mjs";
 import { callDaemon, disconnectDaemonClient } from "../daemon/client.js";
 import { ROOT } from "../runtime.js";
 import { START_ORDER } from "../services.js";
@@ -103,9 +104,13 @@ async function main() {
           acquired = true;
           try {
           phase("prepare", `准备平台 ${request.target}`);
-          fs.mkdirSync(release, { recursive: true });
-          atomicJson(path.join(release, "package.json"), { private: true, dependencies: {} });
-          await runPnpm(["add", "--ignore-workspace", "--prod", "--ignore-scripts", "--save-exact", `@sfmc-bds/sfmc@${request.target}`], release);
+          // 先用配置的 npm 源；失败时清空本次目录，改用官方源再装一次（镜像可能还没同步到刚发布的依赖）。
+          await withNpmRegistry(async registry => {
+            fs.rmSync(release, { recursive: true, force: true });
+            fs.mkdirSync(release, { recursive: true });
+            atomicJson(path.join(release, "package.json"), { private: true, dependencies: {} });
+            await runPnpm(["add", "--ignore-workspace", "--prod", "--ignore-scripts", "--save-exact", `--registry=${registry}`, `@sfmc-bds/sfmc@${request.target}`], release);
+          }, ROOT);
           const linked = path.join(release, "node_modules", "@sfmc-bds", "sfmc", "bin", "sfmc.mjs");
           if (!fs.existsSync(linked)) throw new Error("平台入口不存在");
           // pnpm 的依赖链接在真实包目录旁。从 junction 路径 createRequire 会找不到 @sfmc-bds/cli。

@@ -11,6 +11,7 @@ SFMC 采用**约定优于配置（Convention over Configuration）**的设计理
 ```text
 <SFMC_ROOT>/
 ├── configs/
+│   ├── runtime.json            # 实例元数据、语言与 npm 源
 │   ├── db_config.json          # 数据库守护服务与 loopback 通信
 │   ├── qq_config.json          # QQ 互通桥接（官方 Bot / LLBot）
 │   ├── bds_updater.json        # BDS 版本检查、自动备份与崩溃重启
@@ -201,6 +202,25 @@ BDS 控制台或高频实体脚本常常会打印过量无效信息。通过 `lo
 
 - `mode`: `"drop"`（命中规则丢弃）或 `"keep"`（白名单模式，仅保留命中项）。
 - `applyTo`: `"display"`（仅在控制台终端/REPL 中隐藏，落盘文件仍保留便于复盘）或 `"all"`（连同磁盘日志一同过滤）。
+
+---
+
+### `runtime.json`：实例元数据与 npm 源
+
+初始化向导写入 `initialized_at`；`locale` 决定 CLI 与 `server.properties` 注释语言。`npm_registry` 指定检查更新与安装时使用的 npm 源，国内服务器可以填 npmmirror：
+
+```json title="configs/runtime.json"
+{
+  "initialized_at": "2026-10-03T10:37:23.000Z",
+  "npm_registry": "https://registry.npmmirror.com/"
+}
+```
+
+| 字段           | 类型     | 默认值                        | 作用说明                                                                                                                                                       |
+| :------------- | :------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm_registry` | `string` | `https://registry.npmjs.org/` | 平台版本检查、模块版本检查、平台升级与模块安装共用的 npm 源。检查时与官方源同时请求，取先返回的结果；安装失败时自动改用官方源重试。可通过环境变量 `SFMC_NPM_REGISTRY` 覆盖。 |
+
+镜像同步通常有几分钟延迟：刚发布的版本可能稍后才出现在检查结果里。官方模块索引同时请求 GitHub 与 jsDelivr，不需要配置；jsDelivr 有缓存，索引更新后可能稍晚生效。
 
 ---
 

@@ -7,13 +7,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseRegistryIndex } from "./registry-index.mjs";
+import { DEFAULT_REGISTRY_REPO, DEFAULT_REGISTRY_TAG, MODULE_INDEX_URLS, fetchFirstJson } from "./network-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** 与历史 fetch-module 常量一致，供 search 文案引用。 */
-export const DEFAULT_REGISTRY_REPO = "Tanya7z/sfmc-modules";
-export const DEFAULT_REGISTRY_TAG = "main";
-export const DEFAULT_REGISTRY_INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
+/** 与历史 fetch-module 常量一致，供 search 文案引用。仓库与分支统一定义在 network-sources.mjs。 */
+export { DEFAULT_REGISTRY_REPO, DEFAULT_REGISTRY_TAG };
+export const DEFAULT_REGISTRY_INDEX_URL = MODULE_INDEX_URLS[0];
 
 /** 缓存落在 module-install 目录，和原先 fetch-module 旁边的文件是同一个。 */
 const REGISTRY_CACHE_PATH = path.join(__dirname, "..", ".sfmc-registry-cache.json");
@@ -46,12 +46,12 @@ function writeCache(cache) {
 
 async function fetchRegistryIndexFresh() {
   // BDS beforeStart 会等这次索引请求。8 秒超时与 dist-tag 同量级，超时或失败后仍由 resolveRegistryIndex 的 catch 回退缓存。
-  const res = await fetch(DEFAULT_REGISTRY_INDEX_URL, {
+  // GitHub 与 jsDelivr 同时请求，取先返回的一份；国内 GitHub 超时时不再整段等满 8 秒。
+  const { json } = await fetchFirstJson(MODULE_INDEX_URLS, {
     headers: { "User-Agent": "sfmc-fetch-module" },
-    signal: AbortSignal.timeout(8000),
+    timeoutMs: 8000,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${DEFAULT_REGISTRY_INDEX_URL}`);
-  return parseRegistryIndex(await res.json());
+  return parseRegistryIndex(json);
 }
 
 /**

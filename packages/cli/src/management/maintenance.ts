@@ -12,6 +12,7 @@ import type { AttachmentPlan } from "@sfmc-bds/management";
 import { isDaemonServer } from "../daemon/role.js";
 import { callDaemon } from "../daemon/client.js";
 import { platformReleaseNotes } from "@sfmc-bds/management/node";
+import { fetchFirstJson, npmMetadataUrls } from "../../scripts/module-install/lib/network-sources.mjs";
 
 async function runtimeRows() {
   if (isDaemonServer()) return queryServicesRuntimeLocal();
@@ -36,9 +37,10 @@ export async function attachmentPlan(includeReleaseNotes = true): Promise<Attach
   const currentVersion = platformVersion();
   let targetVersion = currentVersion;
   if (!development) {
-    const response = await fetch("https://registry.npmjs.org/@sfmc-bds%2fsfmc/latest", { signal: AbortSignal.timeout(15_000) });
-    if (!response.ok) throw new Error(`平台版本检查失败 (${response.status})`);
-    const metadata = await response.json() as { version?: string };
+    // 配置的 npm 源与官方源同时请求，取先返回的一份；升级时 pnpm 也按同一组源安装。
+    const metadata = await fetchFirstJson(npmMetadataUrls("@sfmc-bds%2fsfmc/latest", ROOT), { timeoutMs: 15_000 })
+      .then(result => result.json as { version?: string })
+      .catch((error: unknown) => { throw new Error(`平台版本检查失败: ${error instanceof Error ? error.message : String(error)}`); });
     if (!metadata.version || !/^\d+\.\d+\.\d+$/.test(metadata.version)) throw new Error("latest 没有指向有效的稳定平台版本");
     targetVersion = metadata.version;
   }

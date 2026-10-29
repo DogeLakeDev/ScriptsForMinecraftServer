@@ -48,6 +48,7 @@ import { loadPackageCatalogEntry } from "./lib/packages.mjs";
 import { PACKAGES_DIR, ROOT } from "./lib/paths.mjs";
 import { recordInstallPin, removePin, shouldPreserveLock } from "./lib/pins.mjs";
 import { DEFAULT_REGISTRY_REPO, DEFAULT_REGISTRY_TAG, resolveRegistryIndex } from "./lib/registry-cache.mjs";
+import { withNpmRegistry } from "./lib/network-sources.mjs";
 
 const TARGET = PACKAGES_DIR;
 
@@ -771,17 +772,34 @@ async function extractTgz(tgzPath, dstDir, id) {
 
 /**
  * 在临时项目中安装包，只读取 registry/tarball 内容，不执行包的生命周期脚本。
+ * 按 withNpmRegistry 的顺序指定 npm 源：配置的源失败时清掉本次残留，再用官方源重试。
  * @param {string} projectDir
  * @param {string | fs.PathLike} packageSpec
  */
 async function installWithPnpm(projectDir, packageSpec) {
-  await fsp.writeFile(
-    path.join(projectDir, "package.json"),
-    '{"name":"sfmc-module-install-tmp","version":"0.0.0","private":true}\n'
-  );
   // @ts-ignore - cross-spawn resolves pnpm.cmd safely on Windows.
   const spawnChild = (await import("cross-spawn")).default;
-  await new Promise((resolve, reject) => {
+  await withNpmRegistry(async (registry) => {
+    await fsp.rm(path.join(projectDir, "node_modules"), { recursive: true, force: true });
+    await fsp.rm(path.join(projectDir, "pnpm-lock.yaml"), { force: true });
+    await fsp.writeFile(
+      path.join(projectDir, "package.json"),
+      '{"name":"sfmc-module-install-tmp","version":"0.0.0","private":true}\n'
+    );
+    await runPnpmAdd(spawnChild, projectDir, packageSpec, registry);
+  });
+}
+
+/**
+ * 用指定 npm 源执行一次 pnpm add。
+ * 使用场景：installWithPnpm 的单次尝试；源由 withNpmRegistry 传入。
+ * @param {any} spawnChild cross-spawn
+ * @param {string} projectDir
+ * @param {string | fs.PathLike} packageSpec
+ * @param {string} registry
+ */
+function runPnpmAdd(spawnChild, projectDir, packageSpec, registry) {
+  return new Promise((resolve, reject) => {
     const proc = spawnChild(
       process.env.SFMC_PNPM_ENTRY ? (process.env.SFMC_NODE_BINARY || process.execPath) : "pnpm",
       [
@@ -793,6 +811,7 @@ async function installWithPnpm(projectDir, packageSpec) {
         "--config.auto-install-peers=false",
         "--prod",
         "--ignore-scripts",
+        `--registry=${registry}`,
         String(packageSpec),
       ],
       { stdio: ["ignore", "ignore", "pipe"] }

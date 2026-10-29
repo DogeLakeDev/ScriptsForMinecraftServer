@@ -3,6 +3,7 @@
  * the module CLI and the startup unknown-source warning.
  *
  * Talks to https://raw.githubusercontent.com/Tanya7z/sfmc-modules/main/index.json
+ * and its jsDelivr mirror (see scripts/module-install/lib/network-sources.mjs)
  * (the registry lives in a separate repo to keep this one free of "what
  * modules exist" governance). Caches to <sfmc/src/.sfmc-registry-cache.json>
  * with a 1h TTL so a brief network blip doesn't degrade the CLI.
@@ -16,14 +17,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_REGISTRY_REPO, DEFAULT_REGISTRY_TAG, MODULE_INDEX_URLS, fetchFirstJson } from "../scripts/module-install/lib/network-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_PATH = path.join(__dirname, ".sfmc-registry-cache.json");
 const TTL_MS = 60 * 60 * 1000;
-
-const DEFAULT_REGISTRY_REPO = "Tanya7z/sfmc-modules";
-const DEFAULT_REGISTRY_TAG = "main";
-const INDEX_URL = `https://raw.githubusercontent.com/${DEFAULT_REGISTRY_REPO}/${DEFAULT_REGISTRY_TAG}/index.json`;
 
 export interface RegistryEntry {
   npm?: string;
@@ -135,12 +133,12 @@ export function parseRegistryIndex(json: unknown): RegistryIndex {
 }
 
 async function fetchFresh(): Promise<RegistryIndex> {
-  const res = await fetch(INDEX_URL, {
+  // 与 fetch-module 共用候选地址：GitHub 与 jsDelivr 同时请求，取先返回的一份。
+  const { json } = await fetchFirstJson(MODULE_INDEX_URLS, {
     headers: { "User-Agent": "sfmc-cli" },
-    signal: AbortSignal.timeout(3000),
+    timeoutMs: 3000,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${INDEX_URL}`);
-  return parseRegistryIndex(await res.json());
+  return parseRegistryIndex(json);
 }
 
 export interface RegistryResult {

@@ -26,6 +26,7 @@ import {
 } from "./pins.mjs";
 import { CLI_PKG_DIR, ROOT } from "./paths.mjs";
 import { resolveRegistryIndex } from "./registry-cache.mjs";
+import { fetchFirstJson, npmMetadataUrls } from "./network-sources.mjs";
 import { compareSemver, isMajorBump, satisfiesSdk } from "./semver.mjs";
 
 /**
@@ -85,21 +86,21 @@ export function readHostSdkVersion(cliPkgDir = CLI_PKG_DIR) {
 
 /**
  * 拉取 npm dist-tag 上的版本号。
+ * 配置的 npm 源与官方源同时请求，取先返回的一份（见 network-sources.mjs）。
  * @param {string} packageName
  * @param {string} [tag]
+ * @param {string} [root] 实例根目录，用来读取该实例配置的 npm 源
  * @returns {Promise<string | null>}
  */
-export async function fetchNpmDistTag(packageName, tag = "latest") {
+export async function fetchNpmDistTag(packageName, tag = "latest", root = ROOT) {
   const encoded = packageName.replace("/", "%2f");
-  const res = await fetch(`https://registry.npmjs.org/${encoded}`, {
+  const { json: body } = await fetchFirstJson(npmMetadataUrls(encoded, root), {
     headers: {
       Accept: "application/vnd.npm.install-v1+json",
       "User-Agent": "sfmc-fetch-module",
     },
-    signal: AbortSignal.timeout(8000),
+    timeoutMs: 8000,
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${packageName}`);
-  const body = await res.json();
   const version = body?.["dist-tags"]?.[tag];
   return typeof version === "string" ? version : null;
 }
@@ -365,7 +366,7 @@ export async function planModuleUpdates(options = {}) {
     return { configSkipped: "check-off", applyOnStart: false, failMode: cfg.failMode, upgrades: [], skipped: [] };
   }
   const fetchIndex = options.fetchIndex ?? loadRegistryIndexForUpdate;
-  const fetchDistTag = options.fetchDistTag ?? fetchNpmDistTag;
+  const fetchDistTag = options.fetchDistTag ?? ((/** @type {string} */ name, /** @type {string} */ tag) => fetchNpmDistTag(name, tag, root));
   const loaded = await fetchIndex();
   const index = loaded.index;
   const indexOffline = loaded.offline || !index;
